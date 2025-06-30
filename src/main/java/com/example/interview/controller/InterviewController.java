@@ -361,7 +361,8 @@ public class InterviewController {
                 videoStorageService.deleteVideo(record.getVideoFilePath());
             }
             // 删除面试报告
-            interviewReportRepository.deleteByInterviewRecord(record);
+            interviewReportRepository.findByInterviewRecord(record)
+                .ifPresent(interviewReportRepository::delete);
             // 删除面试记录
             interviewRecordRepository.delete(record);
 

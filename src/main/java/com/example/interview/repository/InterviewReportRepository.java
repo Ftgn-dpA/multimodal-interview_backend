@@ -10,4 +10,5 @@ import java.util.Optional;
 @Repository
 public interface InterviewReportRepository extends JpaRepository<InterviewReport, Long> {
     Optional<InterviewReport> findByInterviewRecord(InterviewRecord interviewRecord);
+    void deleteByInterviewRecord(InterviewRecord interviewRecord);
 } 
