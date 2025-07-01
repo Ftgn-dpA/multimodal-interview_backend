@@ -20,7 +20,6 @@ public class InterviewRecord {
     private String aiModel; // 使用的AI模型
     private LocalDateTime startTime;
     private LocalDateTime endTime;
-    private Integer duration; // 面试时长（分钟）
     
     // 视频和音频文件路径
     private String videoFilePath; // 面试视频文件路径
@@ -56,7 +55,7 @@ public class InterviewRecord {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public InterviewRecord(Long id, User user, String interviewType, String position, String aiModel, LocalDateTime startTime, LocalDateTime endTime, Integer duration, String videoFilePath, String audioFilePath, String status, Double overallScore, String overallFeedback, String skillAssessment, String questionAnswers, String improvementSuggestions, String reportFilePath) {
+    public InterviewRecord(Long id, User user, String interviewType, String position, String aiModel, LocalDateTime startTime, LocalDateTime endTime, String videoFilePath, String audioFilePath, String status, Double overallScore, String overallFeedback, String skillAssessment, String questionAnswers, String improvementSuggestions, String reportFilePath) {
         this.id = id;
         this.user = user;
         this.interviewType = interviewType;
@@ -64,7 +63,6 @@ public class InterviewRecord {
         this.aiModel = aiModel;
         this.startTime = startTime;
         this.endTime = endTime;
-        this.duration = duration;
         this.videoFilePath = videoFilePath;
         this.audioFilePath = audioFilePath;
         this.status = status;
@@ -136,14 +134,6 @@ public class InterviewRecord {
 
     public void setEndTime(LocalDateTime endTime) {
         this.endTime = endTime;
-    }
-
-    public Integer getDuration() {
-        return duration;
-    }
-
-    public void setDuration(Integer duration) {
-        this.duration = duration;
     }
 
     public String getVideoFilePath() {
@@ -247,7 +237,6 @@ public class InterviewRecord {
         private String aiModel;
         private LocalDateTime startTime;
         private LocalDateTime endTime;
-        private Integer duration;
         private String videoFilePath;
         private String audioFilePath;
         private String status;
@@ -290,11 +279,6 @@ public class InterviewRecord {
 
         public InterviewRecordBuilder endTime(LocalDateTime endTime) {
             this.endTime = endTime;
-            return this;
-        }
-
-        public InterviewRecordBuilder duration(Integer duration) {
-            this.duration = duration;
             return this;
         }
 
@@ -344,7 +328,7 @@ public class InterviewRecord {
         }
 
         public InterviewRecord build() {
-            return new InterviewRecord(id, user, interviewType, position, aiModel, startTime, endTime, duration, videoFilePath, audioFilePath, status, overallScore, overallFeedback, skillAssessment, questionAnswers, improvementSuggestions, reportFilePath);
+            return new InterviewRecord(id, user, interviewType, position, aiModel, startTime, endTime, videoFilePath, audioFilePath, status, overallScore, overallFeedback, skillAssessment, questionAnswers, improvementSuggestions, reportFilePath);
         }
     }
 } 

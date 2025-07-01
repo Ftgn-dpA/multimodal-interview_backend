@@ -222,10 +222,6 @@ public class InterviewController {
             // 更新面试记录
             record.setEndTime(LocalDateTime.now());
             record.setStatus("COMPLETED");
-            if (record.getStartTime() != null && record.getEndTime() != null) {
-                long durationMinutes = java.time.Duration.between(record.getStartTime(), record.getEndTime()).toMinutes();
-                record.setDuration((int) durationMinutes);
-            }
             
             // 如果没有视频路径，设置一个默认值
             if (record.getVideoFilePath() == null || record.getVideoFilePath().trim().isEmpty()) {
@@ -306,7 +302,11 @@ public class InterviewController {
             String username = jwtUtil.getUsernameFromToken(authHeader.replace("Bearer ", ""));
             User user = userRepository.findByUsername(username).orElseThrow();
             List<InterviewRecord> records = interviewRecordRepository.findByUserOrderByCreatedAtDesc(user);
-            return ResponseEntity.ok(records);
+            // 只返回已完成的面试
+            List<InterviewRecord> completedRecords = records.stream()
+                .filter(r -> "COMPLETED".equals(r.getStatus()))
+                .toList();
+            return ResponseEntity.ok(completedRecords);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", "获取历史记录失败: " + e.getMessage()));
         }
