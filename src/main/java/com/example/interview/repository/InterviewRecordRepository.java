@@ -4,8 +4,10 @@ import com.example.interview.model.InterviewRecord;
 import com.example.interview.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
+import java.util.Optional;
 
 public interface InterviewRecordRepository extends JpaRepository<InterviewRecord, Long> {
     List<InterviewRecord> findByUser(User user);
     List<InterviewRecord> findByUserOrderByCreatedAtDesc(User user);
+    Optional<InterviewRecord> findByUserAndStatus(User user, String status);
 } 

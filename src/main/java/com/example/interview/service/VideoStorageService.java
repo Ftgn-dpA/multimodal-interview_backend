@@ -13,6 +13,11 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
+import com.example.interview.config.VideoStorageConfig;
+import com.example.interview.model.InterviewRecord;
+import com.example.interview.repository.InterviewRecordRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+
 @Service
 public class VideoStorageService {
 
@@ -21,6 +26,11 @@ public class VideoStorageService {
 
     @Value("${video.storage.max-size}")
     private String maxSize;
+
+    @Autowired
+    private VideoStorageConfig videoStorageConfig;
+    @Autowired
+    private InterviewRecordRepository interviewRecordRepository;
 
     /**
      * 保存视频文件
@@ -31,19 +41,24 @@ public class VideoStorageService {
     public String saveVideo(MultipartFile videoFile, Long recordId) throws IOException {
         // 检查文件是否为空
         if (videoFile.isEmpty()) {
+            System.out.println("[saveVideo] 上传文件为空");
             throw new IllegalArgumentException("视频文件不能为空");
         }
 
         // 检查文件大小
         long fileSize = videoFile.getSize();
         long maxSizeBytes = parseSize(maxSize);
+        System.out.println("[saveVideo] 文件大小: " + fileSize + " 字节，最大允许: " + maxSizeBytes + " 字节");
         if (fileSize > maxSizeBytes) {
+            System.out.println("[saveVideo] 文件过大");
             throw new IllegalArgumentException("视频文件大小超过限制: " + maxSize);
         }
 
         // 检查文件类型
         String contentType = videoFile.getContentType();
+        System.out.println("[saveVideo] 文件类型: " + contentType);
         if (contentType == null || !contentType.startsWith("video/")) {
+            System.out.println("[saveVideo] 文件类型非法");
             throw new IllegalArgumentException("文件类型必须是视频格式");
         }
 
@@ -51,9 +66,12 @@ public class VideoStorageService {
         Path storageDir = Paths.get(storagePath);
         if (!Files.exists(storageDir)) {
             Files.createDirectories(storageDir);
+            System.out.println("[saveVideo] 创建存储目录: " + storageDir.toString());
+        } else {
+            System.out.println("[saveVideo] 存储目录已存在: " + storageDir.toString());
         }
 
-        // 生成文件名：recordId_时间戳_UUID.扩展名
+        // 生成文件名
         String originalFilename = videoFile.getOriginalFilename();
         String extension = getFileExtension(originalFilename);
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
@@ -62,9 +80,17 @@ public class VideoStorageService {
 
         // 保存文件
         Path filePath = storageDir.resolve(filename);
-        Files.copy(videoFile.getInputStream(), filePath);
+        System.out.println("[saveVideo] 保存视频到: " + filePath.toString());
+        try {
+            Files.copy(videoFile.getInputStream(), filePath);
+            System.out.println("[saveVideo] 文件保存成功");
+        } catch (Exception e) {
+            System.out.println("[saveVideo] 文件保存异常: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
 
-        // 返回相对路径（用于数据库存储）
+        // 返回相对路径
         return "/videos/" + filename;
     }
 
@@ -146,5 +172,21 @@ public class VideoStorageService {
         } else {
             return Long.parseLong(sizeStr);
         }
+    }
+
+    public String getStoragePath() {
+        return videoStorageConfig.getStorage().getPath();
+    }
+    public String getAccessUrlPrefix() {
+        return videoStorageConfig.getAccessUrlPrefix();
+    }
+    public boolean updateInterviewRecordVideoFilePath(Long recordId, String videoUrl) {
+        InterviewRecord record = interviewRecordRepository.findById(recordId).orElse(null);
+        if (record != null) {
+            record.setVideoFilePath(videoUrl);
+            interviewRecordRepository.save(record);
+            return true;
+        }
+        return false;
     }
 } 

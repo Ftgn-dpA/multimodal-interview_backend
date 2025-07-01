@@ -16,10 +16,19 @@ import com.example.interview.util.JwtUtil;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import com.lowagie.text.Document;
+import com.lowagie.text.Paragraph;
+import com.lowagie.text.pdf.BaseFont;
+import com.lowagie.text.pdf.PdfWriter;
+import javax.servlet.http.HttpServletResponse;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.stream.Collectors;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/interview")
@@ -175,6 +184,22 @@ public class InterviewController {
             String username = jwtUtil.getUsernameFromToken(authHeader.replace("Bearer ", ""));
             User user = userRepository.findByUsername(username).orElseThrow();
             
+            // 幂等性校验：有未完成面试直接返回
+            Optional<InterviewRecord> ongoing = interviewRecordRepository.findByUserAndStatus(user, "IN_PROGRESS");
+            if (ongoing.isPresent()) {
+                InterviewRecord record = ongoing.get();
+                String position = record.getPosition();
+                String aiModel = record.getAiModel();
+                // 生成面试问题（可选：可存储到record或重新生成）
+                String question = largeModelService.generateQuestion(type);
+                return ResponseEntity.ok(Map.of(
+                    "recordId", record.getId(),
+                    "question", question,
+                    "position", position,
+                    "aiModel", aiModel
+                ));
+            }
+            
             // 根据面试类型获取岗位信息
             String position = getPositionByType(type);
             String aiModel = getAiModelByType(type);
@@ -222,10 +247,6 @@ public class InterviewController {
             // 更新面试记录
             record.setEndTime(LocalDateTime.now());
             record.setStatus("COMPLETED");
-            if (record.getStartTime() != null && record.getEndTime() != null) {
-                long durationMinutes = java.time.Duration.between(record.getStartTime(), record.getEndTime()).toMinutes();
-                record.setDuration((int) durationMinutes);
-            }
             
             // 如果没有视频路径，设置一个默认值
             if (record.getVideoFilePath() == null || record.getVideoFilePath().trim().isEmpty()) {
@@ -306,7 +327,11 @@ public class InterviewController {
             String username = jwtUtil.getUsernameFromToken(authHeader.replace("Bearer ", ""));
             User user = userRepository.findByUsername(username).orElseThrow();
             List<InterviewRecord> records = interviewRecordRepository.findByUserOrderByCreatedAtDesc(user);
-            return ResponseEntity.ok(records);
+            // 只返回已完成的面试
+            List<InterviewRecord> completedRecords = records.stream()
+                .filter(r -> "COMPLETED".equals(r.getStatus()))
+                .collect(Collectors.toList());
+            return ResponseEntity.ok(completedRecords);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", "获取历史记录失败: " + e.getMessage()));
         }

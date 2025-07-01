@@ -1,6 +1,7 @@
 package com.example.interview.controller;
 
 import com.example.interview.service.VideoStorageService;
+import com.example.interview.config.VideoStorageConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -8,10 +9,12 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/video")
@@ -19,6 +22,9 @@ public class VideoController {
 
     @Autowired
     private VideoStorageService videoStorageService;
+
+    @Autowired
+    private com.example.interview.config.VideoStorageConfig videoStorageConfig;
 
     /**
      * 获取视频文件
@@ -76,6 +82,29 @@ public class VideoController {
             return ResponseEntity.ok().body(
                 java.util.Map.of("exists", false)
             );
+        }
+    }
+
+    @PostMapping("/upload-video/{recordId}")
+    public ResponseEntity<?> uploadVideo(@PathVariable Long recordId, @RequestParam("video") MultipartFile videoFile) {
+        try {
+            // 获取存储路径
+            String storagePath = videoStorageService.getStoragePath();
+            String urlPrefix = videoStorageService.getAccessUrlPrefix();
+            // 生成唯一文件名
+            String filename = "record_" + recordId + "_" + System.currentTimeMillis() + ".mp4";
+            File dest = new File(storagePath, filename);
+            videoFile.transferTo(dest);
+            // 更新数据库
+            boolean updated = videoStorageService.updateInterviewRecordVideoFilePath(recordId, urlPrefix + filename);
+            if (updated) {
+                return ResponseEntity.ok(Map.of("videoUrl", urlPrefix + filename));
+            } else {
+                return ResponseEntity.status(500).body("视频上传失败");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("视频上传失败");
         }
     }
 } 

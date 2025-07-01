@@ -26,4 +26,5 @@ jwt:
 video:
   storage:
     path: F:/interview-videos
-    max-size: 100MB 
+    max-size: 500MB
+  access-url-prefix: /videos/ 

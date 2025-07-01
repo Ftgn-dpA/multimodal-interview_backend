@@ -18,7 +18,6 @@ CREATE TABLE interview_records (
     ai_model VARCHAR(64),
     start_time DATETIME,
     end_time DATETIME,
-    duration INT,
     video_file_path VARCHAR(255),
     audio_file_path VARCHAR(255),
     status VARCHAR(32),
