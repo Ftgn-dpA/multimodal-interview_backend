@@ -9,5 +9,4 @@ import java.util.Optional;
 public interface InterviewRecordRepository extends JpaRepository<InterviewRecord, Long> {
     List<InterviewRecord> findByUser(User user);
     List<InterviewRecord> findByUserOrderByCreatedAtDesc(User user);
-    Optional<InterviewRecord> findByUserAndStatus(User user, String status);
 } 

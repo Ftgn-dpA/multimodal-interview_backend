@@ -25,9 +25,6 @@ public class InterviewRecord {
     private String videoFilePath; // 面试视频文件路径
     private String audioFilePath; // 音频文件路径
     
-    // 面试状态
-    private String status; // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
-    
     // 评分和反馈
     private Double overallScore; // 总体评分
     private String overallFeedback; // 总体反馈
@@ -55,7 +52,7 @@ public class InterviewRecord {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public InterviewRecord(Long id, User user, String interviewType, String position, String aiModel, LocalDateTime startTime, LocalDateTime endTime, String videoFilePath, String audioFilePath, String status, Double overallScore, String overallFeedback, String skillAssessment, String questionAnswers, String improvementSuggestions, String reportFilePath) {
+    public InterviewRecord(Long id, User user, String interviewType, String position, String aiModel, LocalDateTime startTime, LocalDateTime endTime, String videoFilePath, String audioFilePath, Double overallScore, String overallFeedback, String skillAssessment, String questionAnswers, String improvementSuggestions, String reportFilePath) {
         this.id = id;
         this.user = user;
         this.interviewType = interviewType;
@@ -65,7 +62,6 @@ public class InterviewRecord {
         this.endTime = endTime;
         this.videoFilePath = videoFilePath;
         this.audioFilePath = audioFilePath;
-        this.status = status;
         this.overallScore = overallScore;
         this.overallFeedback = overallFeedback;
         this.skillAssessment = skillAssessment;
@@ -152,14 +148,6 @@ public class InterviewRecord {
         this.audioFilePath = audioFilePath;
     }
 
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
     public Double getOverallScore() {
         return overallScore;
     }
@@ -239,7 +227,6 @@ public class InterviewRecord {
         private LocalDateTime endTime;
         private String videoFilePath;
         private String audioFilePath;
-        private String status;
         private Double overallScore;
         private String overallFeedback;
         private String skillAssessment;
@@ -292,11 +279,6 @@ public class InterviewRecord {
             return this;
         }
 
-        public InterviewRecordBuilder status(String status) {
-            this.status = status;
-            return this;
-        }
-
         public InterviewRecordBuilder overallScore(Double overallScore) {
             this.overallScore = overallScore;
             return this;
@@ -328,7 +310,7 @@ public class InterviewRecord {
         }
 
         public InterviewRecord build() {
-            return new InterviewRecord(id, user, interviewType, position, aiModel, startTime, endTime, videoFilePath, audioFilePath, status, overallScore, overallFeedback, skillAssessment, questionAnswers, improvementSuggestions, reportFilePath);
+            return new InterviewRecord(id, user, interviewType, position, aiModel, startTime, endTime, videoFilePath, audioFilePath, overallScore, overallFeedback, skillAssessment, questionAnswers, improvementSuggestions, reportFilePath);
         }
     }
 } 

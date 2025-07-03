@@ -20,7 +20,6 @@ CREATE TABLE interview_records (
     end_time DATETIME,
     video_file_path VARCHAR(255),
     audio_file_path VARCHAR(255),
-    status VARCHAR(32),
     overall_score DOUBLE,
     overall_feedback TEXT,
     skill_assessment TEXT,
@@ -54,7 +53,6 @@ CREATE TABLE interview_reports (
 -- 创建索引
 CREATE INDEX idx_interview_records_user_id ON interview_records(user_id);
 CREATE INDEX idx_interview_records_type ON interview_records(interview_type);
-CREATE INDEX idx_interview_records_status ON interview_records(status);
 CREATE INDEX idx_interview_records_created_at ON interview_records(created_at);
 CREATE INDEX idx_interview_reports_record_id ON interview_reports(interview_record_id);
 
@@ -62,5 +60,12 @@ CREATE INDEX idx_interview_reports_record_id ON interview_reports(interview_reco
 -- CREATE USER 'interview_user'@'localhost' IDENTIFIED BY 'interview_password';
 -- GRANT ALL PRIVILEGES ON interview_simulator.* TO 'interview_user'@'localhost';
 -- FLUSH PRIVILEGES;
+
+-- 创建用户表
+CREATE TABLE IF NOT EXISTS users (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    username VARCHAR(64) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 表结构将由Hibernate自动创建，这里不需要手动创建表 

@@ -13,6 +13,8 @@ import com.example.interview.repository.UserRepository;
 import com.example.interview.service.LargeModelService;
 import com.example.interview.service.VideoStorageService;
 import com.example.interview.util.JwtUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -33,6 +35,7 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/interview")
 public class InterviewController {
+    private static final Logger logger = LoggerFactory.getLogger(InterviewController.class);
     private final LargeModelService largeModelService;
     private final InterviewRecordRepository interviewRecordRepository;
     private final InterviewReportRepository interviewReportRepository;
@@ -183,27 +186,8 @@ public class InterviewController {
         try {
             String username = jwtUtil.getUsernameFromToken(authHeader.replace("Bearer ", ""));
             User user = userRepository.findByUsername(username).orElseThrow();
-            
-            // 幂等性校验：有未完成面试直接返回
-            Optional<InterviewRecord> ongoing = interviewRecordRepository.findByUserAndStatus(user, "IN_PROGRESS");
-            if (ongoing.isPresent()) {
-                InterviewRecord record = ongoing.get();
-                String position = record.getPosition();
-                String aiModel = record.getAiModel();
-                // 生成面试问题（可选：可存储到record或重新生成）
-                String question = largeModelService.generateQuestion(type);
-                return ResponseEntity.ok(Map.of(
-                    "recordId", record.getId(),
-                    "question", question,
-                    "position", position,
-                    "aiModel", aiModel
-                ));
-            }
-            
-            // 根据面试类型获取岗位信息
             String position = getPositionByType(type);
             String aiModel = getAiModelByType(type);
-            
             // 创建面试记录
             InterviewRecord record = InterviewRecord.builder()
                     .user(user)
@@ -211,14 +195,9 @@ public class InterviewController {
                     .position(position)
                     .aiModel(aiModel)
                     .startTime(LocalDateTime.now())
-                    .status("IN_PROGRESS")
                     .build();
-            
             InterviewRecord savedRecord = interviewRecordRepository.save(record);
-            
-            // 生成面试问题
             String question = largeModelService.generateQuestion(type);
-            
             return ResponseEntity.ok(Map.of(
                 "recordId", savedRecord.getId(),
                 "question", question,
@@ -226,6 +205,7 @@ public class InterviewController {
                 "aiModel", aiModel
             ));
         } catch (Exception e) {
+            logger.info("启动面试失败: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of("error", "启动面试失败: " + e.getMessage()));
         }
     }
@@ -236,31 +216,19 @@ public class InterviewController {
         try {
             String username = jwtUtil.getUsernameFromToken(authHeader.replace("Bearer ", ""));
             User user = userRepository.findByUsername(username).orElseThrow();
-            
             InterviewRecord record = interviewRecordRepository.findById(recordId)
                     .orElseThrow(() -> new RuntimeException("面试记录不存在"));
-            
             if (!record.getUser().getId().equals(user.getId())) {
                 return ResponseEntity.badRequest().body(Map.of("error", "无权访问此面试记录"));
             }
-            
             // 更新面试记录
             record.setEndTime(LocalDateTime.now());
-            record.setStatus("COMPLETED");
-            
-            // 如果没有视频路径，设置一个默认值
-            if (record.getVideoFilePath() == null || record.getVideoFilePath().trim().isEmpty()) {
-                record.setVideoFilePath("/uploads/videos/default_" + recordId + ".mp4");
-            }
-            
-            // 生成AI评测报告（这里先用占位数据）
+            // 生成AI评测报告（占位）
             record.setOverallScore(85.0);
             record.setOverallFeedback("整体表现良好，技术基础扎实，沟通能力有待提升");
             record.setSkillAssessment("{\"技术能力\":85,\"沟通能力\":70,\"问题解决\":80,\"学习能力\":90}");
             record.setImprovementSuggestions("{\"建议\":[\"加强STAR结构回答\",\"提升眼神交流\",\"增加具体案例\"]}");
-            
             InterviewRecord savedRecord = interviewRecordRepository.save(record);
-            
             // 创建面试报告
             InterviewReport report = new InterviewReport();
             report.setInterviewRecord(savedRecord);
@@ -274,9 +242,7 @@ public class InterviewController {
             report.setSoftSkillAssessment("沟通能力中等，需要提升表达的逻辑性和条理性。团队协作意识良好，但缺乏具体案例支撑。");
             report.setGeneratedAt(LocalDateTime.now());
             report.setReportFilePath("/reports/" + savedRecord.getId() + "_report.pdf");
-            
             interviewReportRepository.save(report);
-            
             return ResponseEntity.ok(Map.of(
                 "message", "面试结束",
                 "recordId", savedRecord.getId(),
@@ -284,6 +250,7 @@ public class InterviewController {
                 "overallFeedback", savedRecord.getOverallFeedback()
             ));
         } catch (Exception e) {
+            logger.info("结束面试失败: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of("error", "结束面试失败: " + e.getMessage()));
         }
     }
@@ -327,11 +294,8 @@ public class InterviewController {
             String username = jwtUtil.getUsernameFromToken(authHeader.replace("Bearer ", ""));
             User user = userRepository.findByUsername(username).orElseThrow();
             List<InterviewRecord> records = interviewRecordRepository.findByUserOrderByCreatedAtDesc(user);
-            // 只返回已完成的面试
-            List<InterviewRecord> completedRecords = records.stream()
-                .filter(r -> "COMPLETED".equals(r.getStatus()))
-                .collect(Collectors.toList());
-            return ResponseEntity.ok(completedRecords);
+            // 只返回所有面试记录（或如需只保留COMPLETED，可直接返回records）
+            return ResponseEntity.ok(records);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", "获取历史记录失败: " + e.getMessage()));
         }
@@ -341,27 +305,22 @@ public class InterviewController {
     public ResponseEntity<?> getRecordDetail(@PathVariable Long recordId,
                                            @RequestHeader("Authorization") String authHeader) {
         try {
-            System.out.println("=== 获取面试记录详情 ===");
-            System.out.println("recordId: " + recordId);
-            
+            logger.info("=== 获取面试记录详情 ===");
+            logger.info("recordId: {}", recordId);
             String username = jwtUtil.getUsernameFromToken(authHeader.replace("Bearer ", ""));
-            System.out.println("username: " + username);
+            logger.info("username: {}", username);
             User user = userRepository.findByUsername(username).orElseThrow();
-            
             InterviewRecord record = interviewRecordRepository.findById(recordId)
                     .orElseThrow(() -> new RuntimeException("面试记录不存在"));
-            
-            System.out.println("找到记录: " + record.getId() + ", 用户: " + record.getUser().getUsername());
-            
+            logger.info("找到记录: {}, 用户: {}", record.getId(), record.getUser().getUsername());
             if (!record.getUser().getId().equals(user.getId())) {
-                System.out.println("权限验证失败");
+                logger.info("权限验证失败");
                 return ResponseEntity.badRequest().body(Map.of("error", "无权访问此面试记录"));
             }
-            
-            System.out.println("返回记录详情");
+            logger.info("返回记录详情");
             return ResponseEntity.ok(record);
         } catch (Exception e) {
-            System.out.println("获取记录详情失败: " + e.getMessage());
+            logger.info("获取记录详情失败: {}", e.getMessage());
             e.printStackTrace();
             return ResponseEntity.badRequest().body(Map.of("error", "获取记录详情失败: " + e.getMessage()));
         }

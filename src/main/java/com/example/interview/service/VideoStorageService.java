@@ -17,9 +17,13 @@ import com.example.interview.config.VideoStorageConfig;
 import com.example.interview.model.InterviewRecord;
 import com.example.interview.repository.InterviewRecordRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class VideoStorageService {
+
+    private static final Logger logger = LoggerFactory.getLogger(VideoStorageService.class);
 
     @Value("${video.storage.path}")
     private String storagePath;
@@ -41,24 +45,24 @@ public class VideoStorageService {
     public String saveVideo(MultipartFile videoFile, Long recordId) throws IOException {
         // 检查文件是否为空
         if (videoFile.isEmpty()) {
-            System.out.println("[saveVideo] 上传文件为空");
+            logger.info("[saveVideo] 上传文件为空");
             throw new IllegalArgumentException("视频文件不能为空");
         }
 
         // 检查文件大小
         long fileSize = videoFile.getSize();
         long maxSizeBytes = parseSize(maxSize);
-        System.out.println("[saveVideo] 文件大小: " + fileSize + " 字节，最大允许: " + maxSizeBytes + " 字节");
+        logger.info("[saveVideo] 文件大小: {} 字节，最大允许: {} 字节", fileSize, maxSizeBytes);
         if (fileSize > maxSizeBytes) {
-            System.out.println("[saveVideo] 文件过大");
+            logger.info("[saveVideo] 文件过大");
             throw new IllegalArgumentException("视频文件大小超过限制: " + maxSize);
         }
 
         // 检查文件类型
         String contentType = videoFile.getContentType();
-        System.out.println("[saveVideo] 文件类型: " + contentType);
+        logger.info("[saveVideo] 文件类型: {}", contentType);
         if (contentType == null || !contentType.startsWith("video/")) {
-            System.out.println("[saveVideo] 文件类型非法");
+            logger.info("[saveVideo] 文件类型非法");
             throw new IllegalArgumentException("文件类型必须是视频格式");
         }
 
@@ -66,9 +70,9 @@ public class VideoStorageService {
         Path storageDir = Paths.get(storagePath);
         if (!Files.exists(storageDir)) {
             Files.createDirectories(storageDir);
-            System.out.println("[saveVideo] 创建存储目录: " + storageDir.toString());
+            logger.info("[saveVideo] 创建存储目录: {}", storageDir.toString());
         } else {
-            System.out.println("[saveVideo] 存储目录已存在: " + storageDir.toString());
+            logger.info("[saveVideo] 存储目录已存在: {}", storageDir.toString());
         }
 
         // 生成文件名
@@ -80,13 +84,12 @@ public class VideoStorageService {
 
         // 保存文件
         Path filePath = storageDir.resolve(filename);
-        System.out.println("[saveVideo] 保存视频到: " + filePath.toString());
+        logger.info("[saveVideo] 保存视频到: {}", filePath.toString());
         try {
             Files.copy(videoFile.getInputStream(), filePath);
-            System.out.println("[saveVideo] 文件保存成功");
+            logger.info("[saveVideo] 文件保存成功");
         } catch (Exception e) {
-            System.out.println("[saveVideo] 文件保存异常: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("[saveVideo] 文件保存异常", e);
             throw e;
         }
 
