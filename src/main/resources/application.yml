@@ -30,6 +30,8 @@ video:
   access-url-prefix: /videos/
 
 logging:
+  charset:
+    console: UTF-8
   level:
     org:
       hibernate:
