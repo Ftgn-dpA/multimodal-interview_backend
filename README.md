@@ -50,3 +50,56 @@
 2. 配置application.yml
 3. 运行 `mvn spring-boot:run`
 4. 访问 http://localhost:8080 
+
+# Avatar 虚拟人服务集成说明
+
+本项目已集成基于讯飞 SparkOS 平台的虚拟人推流服务，后端采用 Java Spring Boot 实现，严格参照官方 Python demo 逻辑。
+
+## 目录结构
+
+- `controller/AvatarController.java`：RESTful API 控制器
+- `service/AvatarService.java`：业务逻辑层
+- `ws/AvatarWebSocketClient.java`：WebSocket 客户端，负责与讯飞平台通信
+- `util/AuthUtil.java`：鉴权工具类
+- `config/AvatarConfig.java`：参数配置
+
+## 配置
+
+在 `src/main/resources/application.yml` 添加如下配置：
+
+```yaml
+avatar:
+  app_id: 你的appid
+  api_key: 你的apikey
+  api_secret: 你的apisecret
+```
+
+## 依赖
+
+Maven 添加依赖：
+
+```xml
+<dependency>
+    <groupId>org.java-websocket</groupId>
+    <artifactId>Java-WebSocket</artifactId>
+    <version>1.5.3</version>
+</dependency>
+```
+
+## 接口说明
+
+### 1. 启动虚拟人推流
+- `POST /api/avatar/start`
+- 功能：启动推流，控制台打印原始返回
+- 返回：推流结束/失败信息
+
+## 启动方式
+
+1. 配置好 `application.yml`，填写讯飞平台参数和音频路径。
+2. 启动 Spring Boot 服务。
+3. 通过 Postman 或前端调用 `POST /api/avatar/start`。
+
+## 备注
+- 代码严格参照 Python demo 的参数、流程、帧控制、鉴权、推流逻辑。
+- 可根据需要扩展 send/stop 等接口。
+- 如需支持音频/文本交互、会话管理等，可进一步扩展。 

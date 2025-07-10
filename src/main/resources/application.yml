@@ -40,3 +40,11 @@ logging:
           descriptor:
             sql:
               BasicBinder: off 
+
+# 讯飞虚拟人avatar服务配置
+avatar:
+  app_id: 528394f2
+  api_key: 0dccac0467edaaeb86ca3f0fc0bead37
+  api_secret: NWU3MWE4YTM1YmRiYjQxMDgxN2E1MTQ3
+  avatar_id: cnrfb86h2000000004 # 你的avatarId，需在讯飞平台获取
+  vcn: x4_yezi # 你的vcn，需在讯飞平台获取 
