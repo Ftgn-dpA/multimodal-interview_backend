@@ -101,7 +101,9 @@ public class AvatarWebSocketClient extends WebSocketClient {
 
     public void stopClient() {
         status.set(false);
-        this.close();
+        if (this.isOpen()) {
+            this.close();
+        }
     }
 
     public boolean isActive() {
@@ -150,8 +152,13 @@ public class AvatarWebSocketClient extends WebSocketClient {
             Map<String, Object> avatar = new HashMap<>();
             Map<String, Object> stream = new HashMap<>();
             stream.put("protocol", "webrtc");
+            stream.put("fps", 25); // 视频刷新率
+            stream.put("bitrate", 5000); // 视频码率
+            stream.put("alpha", 0); // 透明背景，0关闭
             avatar.put("stream", stream);
             avatar.put("avatar_id", avatarId);
+            avatar.put("width", 720); // 视频分辨率：宽
+            avatar.put("height", 1280); // 视频分辨率：高
             parameter.put("avatar", avatar);
             startMsg.put("parameter", parameter);
             System.out.println("send start request: " + toJson(startMsg));
