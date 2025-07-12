@@ -4,7 +4,7 @@
 
 ### 核心文件
 - **InterviewSimulatorApplication.java**: Spring Boot启动类
-- **application.yml**: 应用配置文件（数据库、JWT、端口等）
+- **application.yml**: 应用配置文件（数据库、JWT、虚拟人配置等）
 
 ### 控制器层 (controller/)
 - **AuthController.java**: 用户认证控制器
@@ -13,19 +13,25 @@
   - `/api/auth/validate`: JWT验证
 - **InterviewController.java**: 面试控制器
   - `/api/interview/start`: 开始面试
-  - `/api/interview/question`: 获取问题
-  - `/api/interview/answer`: 提交答案
-  - `/api/interview/score`: 获取评分
+  - `/api/interview/end`: 结束面试
+  - `/api/interview/types`: 获取面试类型
+  - `/api/interview/history`: 获取历史记录
+- **AvatarController.java**: 虚拟人控制器
+  - `/api/avatar/start`: 启动虚拟人
+  - `/api/avatar/send`: 发送消息（大模型交互）
+  - `/api/avatar/stop`: 关闭虚拟人
 - **GlobalExceptionHandler.java**: 全局异常处理
 
 ### 服务层 (service/)
 - **UserService.java**: 用户业务逻辑
-- **LargeModelService.java**: AI模型服务（模拟）
+- **LargeModelService.java**: AI模型服务
+- **AvatarService.java**: 虚拟人服务（核心）
 - **CustomUserDetailsService.java**: Spring Security用户服务
 
 ### 数据模型 (model/)
 - **User.java**: 用户实体
 - **InterviewRecord.java**: 面试记录实体
+- **InterviewType.java**: 面试类型枚举
 - **AuthRequest.java**: 认证请求DTO
 - **JwtResponse.java**: JWT响应DTO
 - **QuestionResponse.java**: 问题响应DTO
@@ -39,44 +45,40 @@
 
 ### 配置层 (config/)
 - **SecurityConfig.java**: 安全配置
+- **AvatarConfig.java**: 虚拟人配置
 - **JwtAuthenticationFilter.java**: JWT认证过滤器
+
+### WebSocket (ws/)
+- **AvatarWebSocketClient.java**: 虚拟人WebSocket客户端
 
 ### 工具类 (util/)
 - **JwtUtil.java**: JWT工具类
+- **AuthUtil.java**: 讯飞认证工具类
 
 ## 🚀 启动步骤
 
 1. 创建MySQL数据库
-2. 配置application.yml
+2. 配置application.yml（包括虚拟人配置）
 3. 运行 `mvn spring-boot:run`
 4. 访问 http://localhost:8080 
 
-# Avatar 虚拟人服务集成说明
+## 🔧 虚拟人服务配置
 
-本项目已集成基于讯飞 SparkOS 平台的虚拟人推流服务，后端采用 Java Spring Boot 实现，严格参照官方 Python demo 逻辑。
-
-## 目录结构
-
-- `controller/AvatarController.java`：RESTful API 控制器
-- `service/AvatarService.java`：业务逻辑层
-- `ws/AvatarWebSocketClient.java`：WebSocket 客户端，负责与讯飞平台通信
-- `util/AuthUtil.java`：鉴权工具类
-- `config/AvatarConfig.java`：参数配置
-
-## 配置
-
-在 `src/main/resources/application.yml` 添加如下配置：
+### 讯飞平台配置
+在 `src/main/resources/application.yml` 中配置：
 
 ```yaml
 avatar:
   app_id: 你的appid
   api_key: 你的apikey
   api_secret: 你的apisecret
+  avatar_id: 你的avatarId
+  vcn: 你的vcn
+  scene_id: 你的scene_id
 ```
 
-## 依赖
-
-Maven 添加依赖：
+### 依赖配置
+Maven 依赖：
 
 ```xml
 <dependency>
@@ -86,20 +88,69 @@ Maven 添加依赖：
 </dependency>
 ```
 
-## 接口说明
+## 📡 API接口说明
 
-### 1. 启动虚拟人推流
-- `POST /api/avatar/start`
-- 功能：启动推流，控制台打印原始返回
-- 返回：推流结束/失败信息
+### 虚拟人相关接口
 
-## 启动方式
+#### 1. 启动虚拟人
+- **接口**: `POST /api/avatar/start`
+- **功能**: 启动虚拟人会话，建立WebSocket连接
+- **返回**: 
+  ```json
+  {
+    "api_url": "https://rtc-api.xf-yun.com/v1/rtc/play/",
+    "session": "session_id",
+    "stream_url": "webrtc://...",
+    "status": "ok"
+  }
+  ```
 
-1. 配置好 `application.yml`，填写讯飞平台参数和音频路径。
-2. 启动 Spring Boot 服务。
-3. 通过 Postman 或前端调用 `POST /api/avatar/start`。
+#### 2. 发送消息
+- **接口**: `POST /api/avatar/send`
+- **参数**: 
+  - `sessionId`: 会话ID
+  - `text`: 消息内容
+- **功能**: 发送消息给虚拟人，触发大模型交互
+- **返回**: 
+  ```json
+  {
+    "status": "ok",
+    "msg": "消息已发送"
+  }
+  ```
 
-## 备注
-- 代码严格参照 Python demo 的参数、流程、帧控制、鉴权、推流逻辑。
-- 可根据需要扩展 send/stop 等接口。
-- 如需支持音频/文本交互、会话管理等，可进一步扩展。 
+#### 3. 关闭虚拟人
+- **接口**: `POST /api/avatar/stop`
+- **参数**: `sessionId`: 会话ID
+- **功能**: 关闭虚拟人会话，释放资源
+- **返回**: 
+  ```json
+  {
+    "status": "ok",
+    "msg": "avatar会话已关闭"
+  }
+  ```
+
+## 🔄 虚拟人工作流程
+
+1. **启动阶段**: 
+   - 创建WebSocket连接到讯飞平台
+   - 发送start协议，配置虚拟人参数
+   - 等待stream_url返回
+
+2. **交互阶段**:
+   - 接收用户消息
+   - 发送text_interact协议
+   - 虚拟人基于大模型生成回复
+
+3. **关闭阶段**:
+   - 发送stop协议
+   - 关闭WebSocket连接
+   - 清理会话资源
+
+## 🛠️ 技术特点
+
+- **多会话管理**: 支持多个用户同时使用虚拟人
+- **自动资源管理**: 自动清理过期会话
+- **错误处理**: 完善的异常处理和重连机制
+- **协议兼容**: 严格遵循讯飞官方协议规范 

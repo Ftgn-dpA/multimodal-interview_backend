@@ -19,4 +19,7 @@ public class AvatarConfig {
 
     @Value("${avatar.vcn}")
     public String vcn;
+
+    @Value("${avatar.scene_id}")
+    public String sceneId;
 } 

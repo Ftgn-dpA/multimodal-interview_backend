@@ -26,7 +26,7 @@ public class AvatarController {
             Map<String, Object> err = new java.util.HashMap<>();
             err.put("status", "fail");
             err.put("msg", "avatar启动失败: " + e.getMessage());
-            err.put("sessionId", null);
+            err.put("session", null);
             System.out.println("[AvatarController] startAvatar error result: " + err);
             return err;
         }
@@ -34,15 +34,15 @@ public class AvatarController {
 
     @PostMapping(value = "/send", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
-    public Map<String, Object> sendText(@RequestParam String sessionId, @RequestParam String text) {
+    public Map<String, Object> sendInteractText(@RequestParam String sessionId, @RequestParam String text) {
         Map<String, Object> result = new java.util.HashMap<>();
         try {
-            String msg = avatarService.sendText(sessionId, text);
+            String msg = avatarService.sendInteractText(sessionId, text);
             result.put("status", "ok");
             result.put("msg", msg);
         } catch (Exception e) {
             result.put("status", "fail");
-            result.put("msg", "发送文本失败: " + e.getMessage());
+            result.put("msg", "发送消息失败: " + e.getMessage());
         }
         return result;
     }

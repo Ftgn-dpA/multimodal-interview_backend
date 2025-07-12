@@ -44,6 +44,7 @@ public class AvatarService {
                     config.appId,
                     config.avatarId,
                     config.vcn,
+                    config.sceneId,
                     latch,
                     sessionId
             );
@@ -69,11 +70,11 @@ public class AvatarService {
             // 健壮等待streamUrl返回，最多等待10秒
             boolean gotStream = latch.await(10, TimeUnit.SECONDS);
             System.out.println("[AvatarService] latch await result: " + gotStream);
-            result.put("sessionId", sessionId);
+            result.put("session", sessionId);
             if (gotStream && client.getStreamUrl() != null) {
                 System.out.println("[AvatarService] got streamUrl: " + client.getStreamUrl());
-                result.put("streamUrl", client.getStreamUrl());
-                result.put("apiUrl", "https://rtc-api.xf-yun.com/v1/rtc/play/"); // 信令API地址，按实际服务商填写
+                result.put("stream_url", client.getStreamUrl());
+                result.put("api_url", "https://rtc-api.xf-yun.com/v1/rtc/play/"); // 信令API地址，按实际服务商填写
                 result.put("status", "ok");
             } else {
                 System.out.println("[AvatarService] failed to get streamUrl, gotStream: " + gotStream + ", streamUrl: " + client.getStreamUrl());
@@ -88,17 +89,17 @@ public class AvatarService {
             e.printStackTrace();
             result.put("status", "fail");
             result.put("msg", "启动虚拟人失败: " + e.getMessage());
-            result.put("sessionId", null);
+            result.put("session", null);
         }
         System.out.println("[AvatarService] startSession result: " + result);
         return result;
     }
 
-    public String sendText(String sessionId, String text) {
+    public String sendInteractText(String sessionId, String text) {
         AvatarWebSocketClient client = sessionMap.get(sessionId);
         if (client != null) {
-            client.sendDriverText(text);
-            return "文本已发送";
+            client.sendInteractText(text);
+            return "消息已发送";
         } else {
             return "avatar会话未启动或已关闭";
         }

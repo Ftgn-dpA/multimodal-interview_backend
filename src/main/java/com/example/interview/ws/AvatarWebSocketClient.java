@@ -22,6 +22,7 @@ public class AvatarWebSocketClient extends WebSocketClient {
     private String appId;
     private String avatarId;
     private String vcn;
+    private String sceneId;
     private CountDownLatch latch;
     private BlockingQueue<String> dataList = new LinkedBlockingQueue<>(100);
     private AtomicBoolean status = new AtomicBoolean(true);
@@ -31,11 +32,12 @@ public class AvatarWebSocketClient extends WebSocketClient {
     private volatile String streamUrl = null;
     private String sessionId;
 
-    public AvatarWebSocketClient(URI serverUri, String appId, String avatarId, String vcn, CountDownLatch latch, String sessionId) {
+    public AvatarWebSocketClient(URI serverUri, String appId, String avatarId, String vcn, String sceneId, CountDownLatch latch, String sessionId) {
         super(serverUri);
         this.appId = appId;
         this.avatarId = avatarId;
         this.vcn = vcn;
+        this.sceneId = sceneId;
         this.latch = latch;
         this.sessionId = sessionId;
         System.out.println("[构造] AvatarWebSocketClient created, sessionId=" + sessionId + ", hashCode=" + this.hashCode());
@@ -56,11 +58,24 @@ public class AvatarWebSocketClient extends WebSocketClient {
         try {
             Map<String, Object> data = parseJson(message);
             Map<String, Object> header = (Map<String, Object>) data.get("header");
-            if (header != null && ((Number)header.getOrDefault("code", 0)).intValue() != 0) {
-                status.set(false);
-                System.out.println("receive error msg: " + message);
-                return;
+            
+            // 处理header响应字段
+            if (header != null) {
+                int code = ((Number)header.getOrDefault("code", 0)).intValue();
+                String messageText = (String) header.getOrDefault("message", "");
+                String sid = (String) header.getOrDefault("sid", "");
+                String session = (String) header.getOrDefault("session", "");
+                
+                System.out.println("[响应头] code=" + code + ", message=" + messageText + ", sid=" + sid + ", session=" + session);
+                
+                if (code != 0) {
+                    status.set(false);
+                    System.out.println("receive error msg: " + message);
+                    latch.countDown();
+                    return;
+                }
             }
+            
             Map<String, Object> payload = (Map<String, Object>) data.get("payload");
             if (payload != null && payload.containsKey("avatar")) {
                 Map<String, Object> avatar = (Map<String, Object>) payload.get("avatar");
@@ -68,17 +83,23 @@ public class AvatarWebSocketClient extends WebSocketClient {
                 if ("stop".equals(eventType)) {
                     status.set(false);
                     System.out.println("avatar stop event received");
+                    latch.countDown();
                 } else if ("stream_info".equals(eventType)) {
                     avatarLinked = true;
                     if (avatar.get("stream_url") != null) {
                         streamUrl = avatar.get("stream_url").toString();
-                        latch.countDown(); // 新增：拿到stream_url时立即唤醒主线程
+                        latch.countDown(); // 拿到stream_url时立即唤醒主线程
                     }
                     System.out.println("avatar ws connected: " + message);
                     System.out.println("stream url: " + streamUrl);
                 } else if ("pong".equals(eventType)) {
                     // 心跳响应
+                    System.out.println("收到心跳响应");
+                } else {
+                    System.out.println("收到其他avatar事件: " + eventType);
                 }
+            } else {
+                System.out.println("收到非avatar消息或payload为空");
             }
         } catch (Exception e) {
             System.out.println("消息解析异常: " + e.getMessage());
@@ -110,30 +131,37 @@ public class AvatarWebSocketClient extends WebSocketClient {
         return status.get();
     }
 
-    public void sendDriverText(String driverText) {
+    // 文本交互协议 - 会走到交互平台中配置的大模型进行语义理解
+    public void sendInteractText(String interactText) {
         try {
             Map<String, Object> textMsg = new HashMap<>();
             Map<String, Object> header = new HashMap<>();
             header.put("app_id", appId);
             header.put("request_id", UUID.randomUUID().toString());
-            header.put("ctrl", "text_driver");
+            header.put("ctrl", "text_interact");
             textMsg.put("header", header);
             Map<String, Object> parameter = new HashMap<>();
             Map<String, Object> tts = new HashMap<>();
             tts.put("vcn", vcn);
+            tts.put("speed", 50);
+            tts.put("pitch", 50);
+            tts.put("audio", new HashMap<String, Object>() {{
+                put("sample_rate", 16000);
+            }});
             parameter.put("tts", tts);
-            Map<String, Object> avatar_dispatch = new HashMap<>();
-            avatar_dispatch.put("interactive_mode", 0);
-            parameter.put("avatar_dispatch", avatar_dispatch);
+            Map<String, Object> air = new HashMap<>();
+            air.put("air", 1); // 是否开启自动动作，0关闭/1开启，自动动作只有开启交互走到大模型时才生效
+            air.put("add_nonsemantic", 1); // 是否开启无指向性动作，0关闭，1开启（需配合nlp=true时生效)，虚拟人会做没有意图指向性的动作
+            parameter.put("air", air);
             textMsg.put("parameter", parameter);
             Map<String, Object> payload = new HashMap<>();
             Map<String, Object> text = new HashMap<>();
-            text.put("content", driverText);
+            text.put("content", interactText);
             payload.put("text", text);
             textMsg.put("payload", payload);
             dataList.put(toJson(textMsg));
         } catch (Exception e) {
-            System.out.println("sendDriverText error: " + e.getMessage());
+            System.out.println("sendInteractText error: " + e.getMessage());
         }
     }
 
@@ -144,6 +172,7 @@ public class AvatarWebSocketClient extends WebSocketClient {
             header.put("app_id", appId);
             header.put("request_id", UUID.randomUUID().toString());
             header.put("ctrl", "start");
+            header.put("scene_id", sceneId); // 添加场景ID
             startMsg.put("header", header);
             Map<String, Object> parameter = new HashMap<>();
             Map<String, Object> tts = new HashMap<>();
