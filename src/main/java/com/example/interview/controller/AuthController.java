@@ -7,6 +7,9 @@ import com.example.interview.service.UserService;
 import com.example.interview.util.JwtUtil;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -34,5 +37,14 @@ public class AuthController {
         }
         String token = jwtUtil.generateToken(user.getUsername());
         return ResponseEntity.ok(new JwtResponse(token));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentUser(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).body("未登录");
+        }
+        String username = authentication.getName();
+        return ResponseEntity.ok(Map.of("username", username));
     }
 }

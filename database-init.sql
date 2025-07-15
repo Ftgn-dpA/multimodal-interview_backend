@@ -68,4 +68,14 @@ CREATE TABLE IF NOT EXISTS users (
     password VARCHAR(255) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 创建简历表
+CREATE TABLE IF NOT EXISTS resume (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    filename VARCHAR(255) NOT NULL,
+    upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    original_name VARCHAR(255),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
 -- 表结构将由Hibernate自动创建，这里不需要手动创建表 
