@@ -71,7 +71,7 @@ public class InterviewController {
                         "title", "AI工程师",
                         "description", "专注于机器学习、深度学习、自然语言处理等技术",
                         "skills", List.of("机器学习", "深度学习", "Python", "TensorFlow", "自然语言处理"),
-                        "aiModel", "GPT-4 + Claude",
+                        "aiModel", "星火V4.0",
                         "difficulty", "高级"
                     ),
                     Map.of(
@@ -79,7 +79,7 @@ public class InterviewController {
                         "title", "AI研究员",
                         "description", "专注于前沿AI算法研究和创新",
                         "skills", List.of("算法研究", "论文阅读", "数学基础", "创新思维", "实验设计"),
-                        "aiModel", "Claude + GPT-4",
+                        "aiModel", "星火V4.0",
                         "difficulty", "专家级"
                     )
                 )
@@ -94,7 +94,7 @@ public class InterviewController {
                         "title", "数据工程师",
                         "description", "专注于数据处理、ETL、数据仓库等技术",
                         "skills", List.of("SQL", "Python", "Spark", "Hadoop", "数据建模"),
-                        "aiModel", "Claude + GPT-4",
+                        "aiModel", "星火V4.0",
                         "difficulty", "中级"
                     ),
                     Map.of(
@@ -102,7 +102,7 @@ public class InterviewController {
                         "title", "数据科学家",
                         "description", "专注于数据分析、统计建模、商业智能等",
                         "skills", List.of("统计分析", "机器学习", "数据可视化", "商业分析", "R/Python"),
-                        "aiModel", "GPT-4 + Claude",
+                        "aiModel", "星火V4.0",
                         "difficulty", "高级"
                     )
                 )
@@ -117,7 +117,7 @@ public class InterviewController {
                         "title", "物联网工程师",
                         "description", "专注于传感器、嵌入式系统、IoT平台开发",
                         "skills", List.of("嵌入式开发", "传感器技术", "IoT协议", "硬件设计", "云平台"),
-                        "aiModel", "Claude + GPT-4",
+                        "aiModel", "星火V4.0",
                         "difficulty", "中级"
                     ),
                     Map.of(
@@ -125,7 +125,7 @@ public class InterviewController {
                         "title", "IoT架构师",
                         "description", "专注于IoT系统架构设计和优化",
                         "skills", List.of("系统架构", "物联网协议", "安全设计", "性能优化", "技术选型"),
-                        "aiModel", "GPT-4 + Claude",
+                        "aiModel", "星火V4.0",
                         "difficulty", "高级"
                     )
                 )
@@ -140,7 +140,7 @@ public class InterviewController {
                         "title", "系统工程师",
                         "description", "专注于系统设计、性能优化、架构规划",
                         "skills", List.of("系统设计", "性能优化", "架构规划", "技术选型", "团队协作"),
-                        "aiModel", "Claude + GPT-4",
+                        "aiModel", "星火V4.0",
                         "difficulty", "高级"
                     ),
                     Map.of(
@@ -148,7 +148,7 @@ public class InterviewController {
                         "title", "DevOps工程师",
                         "description", "专注于自动化部署、监控、运维",
                         "skills", List.of("Docker", "Kubernetes", "CI/CD", "监控告警", "自动化运维"),
-                        "aiModel", "GPT-4 + Claude",
+                        "aiModel", "星火V4.0",
                         "difficulty", "中级"
                     )
                 )
@@ -163,7 +163,7 @@ public class InterviewController {
                         "title", "产品经理",
                         "description", "专注于产品规划、需求分析、用户体验",
                         "skills", List.of("产品规划", "需求分析", "用户体验", "数据分析", "项目管理"),
-                        "aiModel", "Claude + GPT-4",
+                        "aiModel", "星火V4.0",
                         "difficulty", "中级"
                     ),
                     Map.of(
@@ -171,7 +171,7 @@ public class InterviewController {
                         "title", "技术产品经理",
                         "description", "专注于技术产品规划和团队协作",
                         "skills", List.of("技术理解", "产品规划", "团队协作", "技术选型", "项目管理"),
-                        "aiModel", "GPT-4 + Claude",
+                        "aiModel", "星火V4.0",
                         "difficulty", "高级"
                     )
                 )
@@ -377,9 +377,9 @@ public class InterviewController {
         // 根据岗位类型返回对应的AI模型（占位）
         if (type.startsWith("AI_") || type.equals("DATA_SCIENTIST") || type.equals("IOT_ARCHITECT") || 
             type.equals("SYSTEM_ENGINEER") || type.equals("TECHNICAL_PRODUCT_MANAGER")) {
-            return "GPT-4 + Claude";
+            return "星火V4.0";
         } else {
-            return "Claude + GPT-4";
+            return "星火V4.0";
         }
     }
 } 
