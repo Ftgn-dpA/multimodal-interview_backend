@@ -4,6 +4,7 @@ import com.example.interview.service.AvatarService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
@@ -60,5 +61,13 @@ public class AvatarController {
             result.put("msg", "avatar关闭失败: " + e.getMessage());
         }
         return result;
+    }
+
+    @PostMapping(value = "/audio-interact", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public Map<String, Object> audioInteract(@RequestParam("sessionId") String sessionId,
+                                             @RequestParam("audio") MultipartFile audioFile) {
+        // 调用AvatarService进行音频交互
+        return avatarService.audioInteract(sessionId, audioFile);
     }
 } 

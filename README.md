@@ -131,6 +131,25 @@ Maven 依赖：
   }
   ```
 
+#### 4. 语音交互
+- **接口**: `POST /api/avatar/audio-interact`
+- **参数**: 
+  - `sessionId`：虚拟人会话ID（需先通过 /api/avatar/start 获取）
+  - `audio`：音频文件（form-data上传，16kHz 16bit 单声道原始流，推荐wav/raw）
+- **功能**: 将音频分帧推送给虚拟人平台，平台自动完成语音识别、语义理解和回复生成
+- **返回**:
+  ```json
+  {
+    "status": "ok",
+    "msg": "音频已发送，等待平台响应"
+  }
+  ```
+- **使用流程**:
+  1. 先调用 `/api/avatar/start` 获取 `sessionId`。
+  2. 录制音频后，通过本接口上传音频文件和 `sessionId`。
+  3. 后端自动分帧推送音频，平台自动完成ASR+NLP+TTS。
+  4. 可通过WebSocket/后续接口获取平台返回的识别文本、理解结果和播报内容。
+
 ## 🔄 虚拟人工作流程
 
 1. **启动阶段**: 

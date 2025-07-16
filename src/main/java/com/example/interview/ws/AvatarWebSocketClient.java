@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.HashMap;
 
 import java.nio.charset.StandardCharsets;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class AvatarWebSocketClient extends WebSocketClient {
     private String appId;
@@ -58,16 +59,12 @@ public class AvatarWebSocketClient extends WebSocketClient {
         try {
             Map<String, Object> data = parseJson(message);
             Map<String, Object> header = (Map<String, Object>) data.get("header");
-            
-            // 处理header响应字段
             if (header != null) {
                 int code = ((Number)header.getOrDefault("code", 0)).intValue();
                 String messageText = (String) header.getOrDefault("message", "");
                 String sid = (String) header.getOrDefault("sid", "");
                 String session = (String) header.getOrDefault("session", "");
-                
                 System.out.println("[响应头] code=" + code + ", message=" + messageText + ", sid=" + sid + ", session=" + session);
-                
                 if (code != 0) {
                     status.set(false);
                     System.out.println("receive error msg: " + message);
@@ -75,28 +72,58 @@ public class AvatarWebSocketClient extends WebSocketClient {
                     return;
                 }
             }
-            
             Map<String, Object> payload = (Map<String, Object>) data.get("payload");
-            if (payload != null && payload.containsKey("avatar")) {
-                Map<String, Object> avatar = (Map<String, Object>) payload.get("avatar");
-                String eventType = (String) avatar.get("event_type");
-                if ("stop".equals(eventType)) {
-                    status.set(false);
-                    System.out.println("avatar stop event received");
-                    latch.countDown();
-                } else if ("stream_info".equals(eventType)) {
-                    avatarLinked = true;
-                    if (avatar.get("stream_url") != null) {
-                        streamUrl = avatar.get("stream_url").toString();
-                        latch.countDown(); // 拿到stream_url时立即唤醒主线程
+            if (payload != null) {
+                // ASR部分
+                if (payload.containsKey("asr")) {
+                    Map<String, Object> asr = (Map<String, Object>) payload.get("asr");
+                    System.out.println("[ASR] " + asr);
+                    if (asr.get("text") != null) {
+                        System.out.println("[ASR识别文本] " + asr.get("text"));
                     }
-                    System.out.println("avatar ws connected: " + message);
-                    System.out.println("stream url: " + streamUrl);
-                } else if ("pong".equals(eventType)) {
-                    // 心跳响应
-                    System.out.println("收到心跳响应");
-                } else {
-                    System.out.println("收到其他avatar事件: " + eventType);
+                    if (asr.get("error_code") != null && ((Number)asr.get("error_code")).intValue() != 0) {
+                        System.out.println("[ASR错误] code=" + asr.get("error_code") + ", msg=" + asr.get("error_message"));
+                    }
+                }
+                // NLP部分
+                if (payload.containsKey("nlp")) {
+                    Map<String, Object> nlp = (Map<String, Object>) payload.get("nlp");
+                    System.out.println("[NLP] " + nlp);
+                    if (nlp.get("answer") != null) {
+                        Map<String, Object> answer = (Map<String, Object>) nlp.get("answer");
+                        System.out.println("[NLP理解结果] " + answer.get("text"));
+                        System.out.println("[NLP命中问题] " + answer.get("hit_question"));
+                    }
+                    if (nlp.get("tts_answer") != null) {
+                        Map<String, Object> tts = (Map<String, Object>) nlp.get("tts_answer");
+                        System.out.println("[TTS播报文本] " + tts.get("text"));
+                    }
+                    if (nlp.get("error_code") != null && ((Number)nlp.get("error_code")).intValue() != 0) {
+                        System.out.println("[NLP错误] code=" + nlp.get("error_code") + ", msg=" + nlp.get("error_message"));
+                    }
+                }
+                // avatar部分（修复分支）
+                if (payload.containsKey("avatar")) {
+                    Map<String, Object> avatar = (Map<String, Object>) payload.get("avatar");
+                    String eventType = (String) avatar.get("event_type");
+                    System.out.println("[Avatar事件] " + avatar);
+                    if ("stop".equals(eventType)) {
+                        status.set(false);
+                        System.out.println("avatar stop event received");
+                        latch.countDown();
+                    } else if ("stream_info".equals(eventType)) {
+                        avatarLinked = true;
+                        if (avatar.get("stream_url") != null) {
+                            streamUrl = avatar.get("stream_url").toString();
+                            System.out.println("[stream_info] stream_url=" + streamUrl);
+                            latch.countDown(); // 拿到stream_url时立即唤醒主线程
+                        }
+                        System.out.println("avatar ws connected: " + message);
+                    } else if ("pong".equals(eventType)) {
+                        System.out.println("收到心跳响应");
+                    } else {
+                        System.out.println("收到其他avatar事件: " + eventType);
+                    }
                 }
             } else {
                 System.out.println("收到非avatar消息或payload为空");
@@ -129,6 +156,10 @@ public class AvatarWebSocketClient extends WebSocketClient {
 
     public boolean isActive() {
         return status.get();
+    }
+
+    public String getAppId() {
+        return appId;
     }
 
     // 文本交互协议 - 会走到交互平台中配置的大模型进行语义理解
@@ -235,6 +266,17 @@ public class AvatarWebSocketClient extends WebSocketClient {
 
     public String getStreamUrl() {
         return streamUrl;
+    }
+
+    // 发送原始json对象
+    public void sendRawJson(Map<String, Object> msg) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            String json = mapper.writeValueAsString(msg);
+            this.send(json);
+        } catch (Exception e) {
+            System.out.println("sendRawJson error: " + e.getMessage());
+        }
     }
 
     // 简单JSON序列化/反序列化（可用第三方库优化）

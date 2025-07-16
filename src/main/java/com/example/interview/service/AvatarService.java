@@ -4,14 +4,17 @@ import com.example.interview.config.AvatarConfig;
 import com.example.interview.ws.AvatarWebSocketClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import java.net.URI;
-import java.util.concurrent.CountDownLatch;
+import org.springframework.web.multipart.MultipartFile;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.UUID;
+import java.io.InputStream;
+import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ConcurrentHashMap;
+import java.net.URI;
 
 @Service
 public class AvatarService {
@@ -115,5 +118,72 @@ public class AvatarService {
         } else {
             return "avatar会话未启动或已关闭";
         }
+    }
+
+    /**
+     * 音频交互：将音频分帧编码后通过WebSocket发送给Avatar平台，返回响应结果
+     */
+    public Map<String, Object> audioInteract(String sessionId, MultipartFile audioFile) {
+        Map<String, Object> result = new HashMap<>();
+        AvatarWebSocketClient client = sessionMap.get(sessionId);
+        if (client == null) {
+            result.put("status", "fail");
+            result.put("msg", "avatar会话未启动或已关闭");
+            System.out.println("[audioInteract] sessionId=" + sessionId + " 未找到对应WebSocketClient");
+            return result;
+        }
+        try {
+            // 读取音频数据
+            byte[] audioBytes = audioFile.getBytes();
+            int frameSize = 3200; // 100ms帧，16k采样16bit单声道=3200字节
+            int total = audioBytes.length;
+            int seq = 0;
+            System.out.println("[audioInteract] 开始推送音频，总字节数=" + total + ", 预计帧数=" + ((total + frameSize - 1) / frameSize));
+            for (int offset = 0; offset < total; offset += frameSize) {
+                int len = Math.min(frameSize, total - offset);
+                byte[] frame = new byte[len];
+                System.arraycopy(audioBytes, offset, frame, 0, len);
+                String base64Audio = Base64.getEncoder().encodeToString(frame);
+                int status = 1;
+                if (offset == 0) status = 0; // 首帧
+                else if (offset + len >= total) status = 2; // 尾帧
+                Map<String, Object> msg = new HashMap<>();
+                Map<String, Object> header = new HashMap<>();
+                header.put("app_id", client.getAppId());
+                header.put("ctrl", "audio_interact");
+                header.put("request_id", UUID.randomUUID().toString());
+                msg.put("header", header);
+                Map<String, Object> parameter = new HashMap<>();
+                Map<String, Object> asr = new HashMap<>();
+                asr.put("full_duplex", 0);
+                parameter.put("asr", asr);
+                msg.put("parameter", parameter);
+                Map<String, Object> payload = new HashMap<>();
+                Map<String, Object> audio = new HashMap<>();
+                audio.put("encoding", "raw");
+                audio.put("sample_rate", 16000);
+                audio.put("channels", 1);
+                audio.put("bit_depth", 16);
+                audio.put("status", status);
+                audio.put("seq", seq);
+                audio.put("audio", base64Audio);
+                audio.put("frame_size", len);
+                payload.put("audio", audio);
+                msg.put("payload", payload);
+                System.out.println("[audioInteract] 发送帧 seq=" + seq + ", status=" + status + ", 长度=" + len);
+                client.sendRawJson(msg);
+                seq++;
+                Thread.sleep(40); // 控制推送速率，防止平台限流
+            }
+            System.out.println("[audioInteract] 音频推送完成，总帧数=" + seq);
+            // 等待响应（可根据实际需求优化为异步/回调）
+            result.put("status", "ok");
+            result.put("msg", "音频已发送，等待平台响应");
+        } catch (IOException | InterruptedException e) {
+            result.put("status", "fail");
+            result.put("msg", "音频处理异常: " + e.getMessage());
+            System.out.println("[audioInteract] 音频处理异常: " + e.getMessage());
+        }
+        return result;
     }
 } 
