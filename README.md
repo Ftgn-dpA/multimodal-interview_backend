@@ -82,8 +82,7 @@ avatar:
   # python脚本配置
 python:
   interpreter: D:/miniconda3/envs/ship/python.exe，改成你的python运行环境
-  将脚本放到video:storage:path：interview-videos中
-  安装python3.9+torch带cuda版本+ffmpeg
+  env: python3.9+torch+ffmpeg
 ```
 
 
