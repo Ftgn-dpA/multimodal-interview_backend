@@ -21,12 +21,15 @@
   - `/api/avatar/send`: 发送消息（大模型交互）
   - `/api/avatar/stop`: 关闭虚拟人
 - **GlobalExceptionHandler.java**: 全局异常处理
+- **PythonController.java**:音频视频模态分析脚本控制器
+  - `/api/python/analyze`: 得到分析结果
 
 ### 服务层 (service/)
 - **UserService.java**: 用户业务逻辑
 - **LargeModelService.java**: AI模型服务
 - **AvatarService.java**: 虚拟人服务（核心）
 - **CustomUserDetailsService.java**: Spring Security用户服务
+- **PythonScriptService.java**: 运行模态分析脚本
 
 ### 数据模型 (model/)
 - **User.java**: 用户实体
@@ -75,7 +78,14 @@ avatar:
   avatar_id: 你的avatarId
   vcn: 你的vcn
   scene_id: 你的scene_id
+
+  # python脚本配置
+python:
+  interpreter: D:/miniconda3/envs/ship/python.exe，改成你的python运行环境
+  将脚本放到video:storage:path：interview-videos中
+  安装python3.9+torch带cuda版本+ffmpeg
 ```
+
 
 ### 依赖配置
 Maven 依赖：
@@ -130,25 +140,6 @@ Maven 依赖：
     "msg": "avatar会话已关闭"
   }
   ```
-
-#### 4. 语音交互
-- **接口**: `POST /api/avatar/audio-interact`
-- **参数**: 
-  - `sessionId`：虚拟人会话ID（需先通过 /api/avatar/start 获取）
-  - `audio`：音频文件（form-data上传，16kHz 16bit 单声道原始流，推荐wav/raw）
-- **功能**: 将音频分帧推送给虚拟人平台，平台自动完成语音识别、语义理解和回复生成
-- **返回**:
-  ```json
-  {
-    "status": "ok",
-    "msg": "音频已发送，等待平台响应"
-  }
-  ```
-- **使用流程**:
-  1. 先调用 `/api/avatar/start` 获取 `sessionId`。
-  2. 录制音频后，通过本接口上传音频文件和 `sessionId`。
-  3. 后端自动分帧推送音频，平台自动完成ASR+NLP+TTS。
-  4. 可通过WebSocket/后续接口获取平台返回的识别文本、理解结果和播报内容。
 
 ## 🔄 虚拟人工作流程
 

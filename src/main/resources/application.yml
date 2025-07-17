@@ -29,6 +29,10 @@ video:
     max-size: 1GB
   access-url-prefix: /videos/
 
+python:
+  interpreter: D:/miniconda3/envs/interview/python.exe
+  script_path: F:/multimodal-interview/backend/src/main/python
+
 logging:
   charset:
     console: UTF-8
