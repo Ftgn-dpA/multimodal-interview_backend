@@ -1,12 +1,18 @@
 package com.example.interview.controller;
 
 import com.example.interview.service.AvatarService;
+import com.example.interview.service.AiResponseService;
+import com.example.interview.util.JwtUtil;
+import com.example.interview.model.User;
+import com.example.interview.repository.UserRepository;
+import com.example.interview.repository.InterviewRecordRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/avatar")
@@ -14,6 +20,18 @@ import java.util.Map;
 public class AvatarController {
     @Autowired
     private AvatarService avatarService;
+    
+    @Autowired
+    private AiResponseService aiResponseService;
+    
+    @Autowired
+    private UserRepository userRepository;
+    
+    @Autowired
+    private InterviewRecordRepository interviewRecordRepository;
+    
+    @Autowired
+    private JwtUtil jwtUtil;
 
     @PostMapping(value = "/start", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
@@ -35,7 +53,11 @@ public class AvatarController {
 
     @PostMapping(value = "/send", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
-    public Map<String, Object> sendInteractText(@RequestParam String sessionId, @RequestParam String text) {
+    public Map<String, Object> sendInteractText(
+            @RequestParam String sessionId, 
+            @RequestParam String text,
+            @RequestParam(required = false) Long interviewRecordId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         Map<String, Object> result = new java.util.HashMap<>();
         try {
             String msg = avatarService.sendInteractText(sessionId, text);
@@ -44,6 +66,8 @@ public class AvatarController {
         } catch (Exception e) {
             result.put("status", "fail");
             result.put("msg", "发送消息失败: " + e.getMessage());
+            System.err.println("[AvatarController] 发送消息失败: " + e.getMessage());
+            e.printStackTrace();
         }
         return result;
     }
@@ -72,9 +96,16 @@ public class AvatarController {
 
     @PostMapping(value = "/audio-interact", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
-    public Map<String, Object> audioInteract(@RequestParam("sessionId") String sessionId,
-                                             @RequestParam("audio") MultipartFile audioFile) {
+    public Map<String, Object> audioInteract(
+            @RequestParam("sessionId") String sessionId,
+            @RequestParam("audio") MultipartFile audioFile,
+            @RequestParam(required = false) Long interviewRecordId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         // 调用AvatarService进行音频交互
-        return avatarService.audioInteract(sessionId, audioFile);
+        Map<String, Object> result = avatarService.audioInteract(sessionId, audioFile);
+        
+
+        
+        return result;
     }
 } 

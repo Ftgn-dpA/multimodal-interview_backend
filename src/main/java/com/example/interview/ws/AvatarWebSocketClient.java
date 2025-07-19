@@ -18,8 +18,15 @@ import java.util.HashMap;
 
 import java.nio.charset.StandardCharsets;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.function.Consumer;
 
 public class AvatarWebSocketClient extends WebSocketClient {
+    // AI回复回调接口
+    public interface AiResponseCallback {
+        void onAiResponse(String sessionId, String aiResponse);
+    }
+    
+    private AiResponseCallback aiResponseCallback;
     private String appId;
     private String avatarId;
     private String vcn;
@@ -43,6 +50,10 @@ public class AvatarWebSocketClient extends WebSocketClient {
         this.sessionId = sessionId;
         System.out.println("[构造] AvatarWebSocketClient created, sessionId=" + sessionId + ", hashCode=" + this.hashCode());
     }
+    
+    public void setAiResponseCallback(AiResponseCallback callback) {
+        this.aiResponseCallback = callback;
+    }
 
     @Override
     public void onOpen(ServerHandshake handshakedata) {
@@ -55,19 +66,14 @@ public class AvatarWebSocketClient extends WebSocketClient {
 
     @Override
     public void onMessage(String message) {
-        System.out.println("[原始返回] " + message);
+        System.out.println("[AI原始响应] " + message);
         try {
             Map<String, Object> data = parseJson(message);
             Map<String, Object> header = (Map<String, Object>) data.get("header");
             if (header != null) {
                 int code = ((Number)header.getOrDefault("code", 0)).intValue();
-                String messageText = (String) header.getOrDefault("message", "");
-                String sid = (String) header.getOrDefault("sid", "");
-                String session = (String) header.getOrDefault("session", "");
-                System.out.println("[响应头] code=" + code + ", message=" + messageText + ", sid=" + sid + ", session=" + session);
                 if (code != 0) {
                     status.set(false);
-                    System.out.println("receive error msg: " + message);
                     latch.countDown();
                     return;
                 }
@@ -77,10 +83,6 @@ public class AvatarWebSocketClient extends WebSocketClient {
                 // ASR部分
                 if (payload.containsKey("asr")) {
                     Map<String, Object> asr = (Map<String, Object>) payload.get("asr");
-                    System.out.println("[ASR] " + asr);
-                    if (asr.get("text") != null) {
-                        System.out.println("[ASR识别文本] " + asr.get("text"));
-                    }
                     if (asr.get("error_code") != null && ((Number)asr.get("error_code")).intValue() != 0) {
                         System.out.println("[ASR错误] code=" + asr.get("error_code") + ", msg=" + asr.get("error_message"));
                     }
@@ -88,45 +90,46 @@ public class AvatarWebSocketClient extends WebSocketClient {
                 // NLP部分
                 if (payload.containsKey("nlp")) {
                     Map<String, Object> nlp = (Map<String, Object>) payload.get("nlp");
-                    System.out.println("[NLP] " + nlp);
-                    if (nlp.get("answer") != null) {
-                        Map<String, Object> answer = (Map<String, Object>) nlp.get("answer");
-                        System.out.println("[NLP理解结果] " + answer.get("text"));
-                        System.out.println("[NLP命中问题] " + answer.get("hit_question"));
-                    }
-                    if (nlp.get("tts_answer") != null) {
-                        Map<String, Object> tts = (Map<String, Object>) nlp.get("tts_answer");
-                        System.out.println("[TTS播报文本] " + tts.get("text"));
+                    if (nlp.get("ttsAnswer") != null) {
+                        Map<String, Object> tts = (Map<String, Object>) nlp.get("ttsAnswer");
+                        String aiResponseText = (String) tts.get("text");
+                        
+                        // 获取流式分片信息
+                        String requestId = (String) nlp.get("request_id");
+                        int status = ((Number) nlp.getOrDefault("status", 0)).intValue();
+                        
+                        // 调用回调函数，将AI回复片段传递给服务
+                        if (aiResponseCallback != null && aiResponseText != null && !aiResponseText.trim().isEmpty() && requestId != null) {
+                            try {
+                                // 使用新的流式分片缓存方法
+                                if (aiResponseCallback instanceof com.example.interview.service.AiResponseService) {
+                                    ((com.example.interview.service.AiResponseService) aiResponseCallback).cacheAiResponseFragment(sessionId, requestId, aiResponseText, status);
+                                }
+                            } catch (Exception e) {
+                                System.err.println("[AvatarWebSocketClient] 回调执行失败: " + e.getMessage());
+                            }
+                        }
                     }
                     if (nlp.get("error_code") != null && ((Number)nlp.get("error_code")).intValue() != 0) {
                         System.out.println("[NLP错误] code=" + nlp.get("error_code") + ", msg=" + nlp.get("error_message"));
                     }
                 }
-                // avatar部分（修复分支）
+                
+                // avatar部分
                 if (payload.containsKey("avatar")) {
                     Map<String, Object> avatar = (Map<String, Object>) payload.get("avatar");
                     String eventType = (String) avatar.get("event_type");
-                    System.out.println("[Avatar事件] " + avatar);
                     if ("stop".equals(eventType)) {
                         status.set(false);
-                        System.out.println("avatar stop event received");
                         latch.countDown();
                     } else if ("stream_info".equals(eventType)) {
                         avatarLinked = true;
                         if (avatar.get("stream_url") != null) {
                             streamUrl = avatar.get("stream_url").toString();
-                            System.out.println("[stream_info] stream_url=" + streamUrl);
-                            latch.countDown(); // 拿到stream_url时立即唤醒主线程
+                            latch.countDown();
                         }
-                        System.out.println("avatar ws connected: " + message);
-                    } else if ("pong".equals(eventType)) {
-                        System.out.println("收到心跳响应");
-                    } else {
-                        System.out.println("收到其他avatar事件: " + eventType);
                     }
                 }
-            } else {
-                System.out.println("收到非avatar消息或payload为空");
             }
         } catch (Exception e) {
             System.out.println("消息解析异常: " + e.getMessage());
@@ -245,7 +248,6 @@ public class AvatarWebSocketClient extends WebSocketClient {
                     if (avatarLinked) {
                         String task = dataList.poll(5, TimeUnit.SECONDS);
                         if (task != null) {
-                            System.out.println("send msg: " + task);
                             this.send(task);
                         } else {
                             if (status.get() && avatarLinked) {

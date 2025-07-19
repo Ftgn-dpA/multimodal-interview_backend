@@ -21,9 +21,9 @@ public class PythonController {
     private LargeModelService largeModelService; // 假设你已有
 
     @PostMapping("/analyze")
-    public ResponseEntity<?> analyze(@RequestParam String audioPath, @RequestParam String videoPath) {
+    public ResponseEntity<?> analyze(@RequestParam String videoPath) {
         try {
-            String result = pythonScriptService.runAllScripts(audioPath, videoPath);
+            String result = pythonScriptService.runAllScripts(videoPath);
             //String modelResponse = largeModelService.sendToModel(result);
             //return ResponseEntity.ok(modelResponse);
             System.out.println(result);

@@ -12,6 +12,7 @@ import com.example.interview.repository.InterviewReportRepository;
 import com.example.interview.repository.UserRepository;
 import com.example.interview.service.LargeModelService;
 import com.example.interview.service.VideoStorageService;
+import com.example.interview.service.AiResponseService;
 import com.example.interview.util.JwtUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,20 +42,23 @@ public class InterviewController {
     private final InterviewReportRepository interviewReportRepository;
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
-    private final VideoStorageService videoStorageService;
+        private final VideoStorageService videoStorageService;
+    private final AiResponseService aiResponseService;
 
     public InterviewController(LargeModelService largeModelService, 
-                             InterviewRecordRepository interviewRecordRepository,
-                             InterviewReportRepository interviewReportRepository,
-                             UserRepository userRepository, 
-                             JwtUtil jwtUtil,
-                             VideoStorageService videoStorageService) {
+                            InterviewRecordRepository interviewRecordRepository,
+                            InterviewReportRepository interviewReportRepository,
+                            UserRepository userRepository, 
+                            JwtUtil jwtUtil,
+                            VideoStorageService videoStorageService,
+                            AiResponseService aiResponseService) {
         this.largeModelService = largeModelService;
         this.interviewRecordRepository = interviewRecordRepository;
         this.interviewReportRepository = interviewReportRepository;
         this.userRepository = userRepository;
         this.jwtUtil = jwtUtil;
         this.videoStorageService = videoStorageService;
+        this.aiResponseService = aiResponseService;
     }
 
     @GetMapping("/types")
@@ -197,6 +201,7 @@ public class InterviewController {
     @PostMapping("/end/{recordId}")
     public ResponseEntity<?> endInterview(@PathVariable Long recordId,
                                         @RequestParam(required = false) Integer actualDuration,
+                                        @RequestParam(required = false) String sessionId,
                                         @RequestHeader("Authorization") String authHeader) {
         try {
             logger.info("=== 结束面试 ===");
@@ -237,6 +242,27 @@ public class InterviewController {
             report.setGeneratedAt(LocalDateTime.now());
             report.setReportFilePath("/reports/" + savedRecord.getId() + "_report.pdf");
             interviewReportRepository.save(report);
+            
+            // 批量保存所有缓存的AI回复（与历史记录生成时机一致）
+            // 注意：只有正常结束面试才会执行到这里，直接退出不会保存AI回复
+            try {
+                if (sessionId != null && !sessionId.isEmpty()) {
+                    int cachedCount = aiResponseService.getCachedResponseCount(sessionId);
+                    if (cachedCount > 0) {
+                        logger.info("正常结束面试，开始批量保存AI回复，sessionId: {}, 缓存数量: {}", sessionId, cachedCount);
+                        aiResponseService.batchSaveAiResponses(sessionId, recordId);
+                        logger.info("AI回复批量保存完成，与历史记录同步");
+                    } else {
+                        logger.info("正常结束面试，没有缓存的AI回复需要保存，sessionId: {}", sessionId);
+                    }
+                } else {
+                    logger.info("正常结束面试，sessionId为空，跳过AI回复保存");
+                }
+            } catch (Exception e) {
+                logger.error("批量保存AI回复失败: {}", e.getMessage());
+                // AI回复保存失败不影响历史记录生成，只记录错误
+            }
+            
             return ResponseEntity.ok(Map.of(
                 "message", "面试结束",
                 "recordId", savedRecord.getId(),

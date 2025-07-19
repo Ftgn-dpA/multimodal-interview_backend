@@ -28,12 +28,14 @@
 - **UserService.java**: 用户业务逻辑
 - **LargeModelService.java**: AI模型服务
 - **AvatarService.java**: 虚拟人服务（核心）
+- **AiResponseService.java**: AI回复缓存和保存服务（新增）
 - **CustomUserDetailsService.java**: Spring Security用户服务
 - **PythonScriptService.java**: 运行模态分析脚本
 
 ### 数据模型 (model/)
 - **User.java**: 用户实体
 - **InterviewRecord.java**: 面试记录实体
+- **AiResponse.java**: AI回复实体（新增）
 - **InterviewType.java**: 面试类型枚举
 - **AuthRequest.java**: 认证请求DTO
 - **JwtResponse.java**: JWT响应DTO
@@ -45,6 +47,7 @@
 ### 数据访问层 (repository/)
 - **UserRepository.java**: 用户数据访问
 - **InterviewRecordRepository.java**: 面试记录数据访问
+- **AiResponseRepository.java**: AI回复数据访问（新增）
 
 ### 配置层 (config/)
 - **SecurityConfig.java**: 安全配置
@@ -84,7 +87,6 @@ python:
   interpreter: D:/miniconda3/envs/ship/python.exe，改成你的python运行环境
   env: python3.9+torch+ffmpeg
 ```
-
 
 ### 依赖配置
 Maven 依赖：
@@ -140,6 +142,42 @@ Maven 依赖：
   }
   ```
 
+## 🤖 AI回复保存功能
+
+### 核心特性
+- **流式分片合并**: 自动合并同一轮AI回复的多个流式片段
+- **JSON数组存储**: 每轮完整AI回复作为JSON数组的一个元素
+- **批量保存**: 面试结束时一次性保存所有轮次的AI回复
+- **内存缓存**: 面试过程中AI回复缓存在内存，避免频繁数据库操作
+
+### 工作流程
+1. **分片接收**: WebSocket接收AI回复的流式分片
+2. **分片缓存**: 按`request_id`分组缓存分片
+3. **片段合并**: 当`status=2`时合并该轮所有分片为完整回复
+4. **完整回复缓存**: 将完整回复添加到面试的回复数组
+5. **批量保存**: 面试结束时将回复数组保存为JSON格式
+
+### 数据库存储格式
+```json
+[
+  "第1轮完整AI回复内容",
+  "第2轮完整AI回复内容", 
+  "第3轮完整AI回复内容"
+]
+```
+
+### 查询示例
+```sql
+-- 查询第1轮AI回复
+SELECT JSON_EXTRACT(ai_response, '$[0]') FROM ai_responses WHERE interview_record_id = 123;
+
+-- 查询所有轮次
+SELECT JSON_EXTRACT(ai_response, '$[*]') FROM ai_responses WHERE interview_record_id = 123;
+
+-- 查询回复轮数
+SELECT JSON_LENGTH(ai_response) FROM ai_responses WHERE interview_record_id = 123;
+```
+
 ## 🔄 虚拟人工作流程
 
 1. **启动阶段**: 
@@ -151,15 +189,20 @@ Maven 依赖：
    - 接收用户消息
    - 发送text_interact协议
    - 虚拟人基于大模型生成回复
+   - **AI回复自动缓存和合并**（新增）
 
 3. **关闭阶段**:
    - 发送stop协议
    - 关闭WebSocket连接
    - 清理会话资源
+   - **批量保存AI回复到数据库**（新增）
 
 ## 🛠️ 技术特点
 
 - **多会话管理**: 支持多个用户同时使用虚拟人
 - **自动资源管理**: 自动清理过期会话
 - **错误处理**: 完善的异常处理和重连机制
-- **协议兼容**: 严格遵循讯飞官方协议规范 
+- **协议兼容**: 严格遵循讯飞官方协议规范
+- **流式处理**: 支持AI回复的流式分片合并
+- **JSON存储**: 使用MySQL JSON类型存储AI回复数组
+- **双缓存机制**: 分片缓存 + 完整回复缓存，提高性能 

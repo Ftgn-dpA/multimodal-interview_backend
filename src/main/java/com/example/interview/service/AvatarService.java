@@ -18,6 +18,9 @@ import java.net.URI;
 
 @Service
 public class AvatarService {
+    
+    @Autowired
+    private com.example.interview.service.AiResponseService aiResponseService;
     @Autowired
     private AvatarConfig config;
 
@@ -51,6 +54,9 @@ public class AvatarService {
                     latch,
                     sessionId
             );
+            
+            // 设置AI回复回调
+            client.setAiResponseCallback(aiResponseService);
             sessionMap.put(sessionId, client);
             System.out.println("[AvatarService] put sessionId=" + sessionId + ", client hashCode=" + client.hashCode());
             Thread wsThread = new Thread(() -> {
@@ -121,7 +127,7 @@ public class AvatarService {
     }
 
     /**
-     * 音频交互：将音频分帧编码后通过WebSocket发送给Avatar平台，返回响应结果
+     * 音频交互：极致性能优化，严格按照讯飞协议规范
      */
     public Map<String, Object> audioInteract(String sessionId, MultipartFile audioFile) {
         Map<String, Object> result = new HashMap<>();
@@ -135,48 +141,70 @@ public class AvatarService {
         try {
             // 读取音频数据
             byte[] audioBytes = audioFile.getBytes();
-            int frameSize = 3200; // 100ms帧，16k采样16bit单声道=3200字节
+            // 严格按照协议：frame_size最大1024字节
+            int frameSize = 1024; // 协议限制的最大帧大小
             int total = audioBytes.length;
             int seq = 0;
+            String requestId = UUID.randomUUID().toString(); // 单次请求的唯一ID
+            
             System.out.println("[audioInteract] 开始推送音频，总字节数=" + total + ", 预计帧数=" + ((total + frameSize - 1) / frameSize));
+            
             for (int offset = 0; offset < total; offset += frameSize) {
                 int len = Math.min(frameSize, total - offset);
                 byte[] frame = new byte[len];
                 System.arraycopy(audioBytes, offset, frame, 0, len);
                 String base64Audio = Base64.getEncoder().encodeToString(frame);
-                int status = 1;
-                if (offset == 0) status = 0; // 首帧
-                else if (offset + len >= total) status = 2; // 尾帧
+                
+                // 严格按照协议：0=开始，1=中间，2=结束
+                int status;
+                if (offset == 0) {
+                    status = 0; // 首帧：开始
+                } else if (offset + len >= total) {
+                    status = 2; // 尾帧：结束
+                } else {
+                    status = 1; // 中间帧：中间
+                }
+                
                 Map<String, Object> msg = new HashMap<>();
+                
+                // Header部分 - 严格按照协议
                 Map<String, Object> header = new HashMap<>();
                 header.put("app_id", client.getAppId());
                 header.put("ctrl", "audio_interact");
-                header.put("request_id", UUID.randomUUID().toString());
+                header.put("request_id", requestId);
                 msg.put("header", header);
+                
+                // Parameter部分 - 使用asr而不是avatar_dispatch
                 Map<String, Object> parameter = new HashMap<>();
                 Map<String, Object> asr = new HashMap<>();
-                asr.put("full_duplex", 0);
+                asr.put("full_duplex", 0); // 0=按住说话语音识别
                 parameter.put("asr", asr);
                 msg.put("parameter", parameter);
+                
+                // Payload.audio部分 - 严格按照协议
                 Map<String, Object> payload = new HashMap<>();
                 Map<String, Object> audio = new HashMap<>();
-                audio.put("encoding", "raw");
+                audio.put("encoding", "raw"); // 使用raw编码
                 audio.put("sample_rate", 16000);
                 audio.put("channels", 1);
                 audio.put("bit_depth", 16);
                 audio.put("status", status);
                 audio.put("seq", seq);
+                audio.put("frame_size", len); // 实际帧大小
                 audio.put("audio", base64Audio);
-                audio.put("frame_size", len);
                 payload.put("audio", audio);
                 msg.put("payload", payload);
-                System.out.println("[audioInteract] 发送帧 seq=" + seq + ", status=" + status + ", 长度=" + len);
+                
                 client.sendRawJson(msg);
                 seq++;
-                Thread.sleep(40); // 控制推送速率，防止平台限流
+                
+                // 极致性能：最小延迟，但避免平台限流
+                if (status != 2) { // 不是最后一帧才延迟
+                    Thread.sleep(10); // 10ms间隔，极致速度
+                }
             }
+            
             System.out.println("[audioInteract] 音频推送完成，总帧数=" + seq);
-            // 等待响应（可根据实际需求优化为异步/回调）
             result.put("status", "ok");
             result.put("msg", "音频已发送，等待平台响应");
         } catch (IOException | InterruptedException e) {

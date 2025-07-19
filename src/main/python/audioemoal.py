@@ -1,5 +1,8 @@
 import os
+import subprocess
 import sys
+
+import torch
 import torchaudio
 import numpy as np
 from transformers import pipeline
@@ -16,6 +19,26 @@ emotion_pipe = pipeline(
 )
 
 
+def extract_audio_ffmpeg(mp4_path, output_wav_path="extracted.wav"):
+    command = [
+        "ffmpeg",
+        "-i", mp4_path,
+        "-ac", "1",             # 单声道
+        "-ar", "16000",         # 采样率 16kHz
+        '-acodec', 'pcm_s16le',   # 16-bit PCM
+        "-vn",  # 不要视频流
+        "-y",  # 自动覆盖输出文件
+        output_wav_path
+    ]
+
+    try:
+        subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return output_wav_path
+    except subprocess.CalledProcessError as e:
+        print("FFmpeg 提取音频失败:", e.stderr.decode())
+        raise
+
+
 def analyze_emotion_interval(audio_path: str, segment_duration: int = 10, step_interval: int = 60):
     """
     每隔 step_interval 秒，截取一段 segment_duration 秒音频进行情感分析。
@@ -24,11 +47,11 @@ def analyze_emotion_interval(audio_path: str, segment_duration: int = 10, step_i
     waveform, sample_rate = torchaudio.load(audio_path)
 
     # 转为 16kHz 单声道
-    #if sample_rate != 16000:
-        #waveform = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=16000)(waveform)
-        #sample_rate = 16000
-    #if waveform.shape[0] > 1:
-        #waveform = torch.mean(waveform, dim=0, keepdim=True)
+    # if sample_rate != 16000:
+    #     waveform = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=16000)(waveform)
+    #     sample_rate = 16000
+    # if waveform.shape[0] > 1:
+    #     waveform = torch.mean(waveform, dim=0, keepdim=True)
 
     total_samples = waveform.shape[1]
     segment_len = segment_duration * sample_rate
@@ -74,8 +97,7 @@ if __name__ == "__main__":
     if not os.path.exists(audio_file):
         print(f"文件不存在：{audio_file}")
         sys.exit(1)
-
-    avg= analyze_emotion_interval(audio_file)
+    avg= analyze_emotion_interval(extract_audio_ffmpeg(audio_file))
     if avg.get('arousal')<0.3:
         review2+='语调较负面;'
     if avg.get('valence') < 0.3:
@@ -84,8 +106,5 @@ if __name__ == "__main__":
         review2 += '语调较不自信;'
     if review2=='':
         review2='语音语调无问题;'
-    print(avg)
     review+=review2
     print (review)
-
-

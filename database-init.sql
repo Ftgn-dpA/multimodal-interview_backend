@@ -29,6 +29,14 @@ CREATE TABLE interview_records (
     FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 创建AI回复记录表（简化版）
+CREATE TABLE ai_responses (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    interview_record_id BIGINT NOT NULL,
+    ai_response JSON NOT NULL COMMENT 'AI回复数组，每轮对话的完整回复作为一个JSON数组元素',
+    FOREIGN KEY (interview_record_id) REFERENCES interview_records(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- 如果表已存在，删除冗余字段并添加 actual_duration 字段
 ALTER TABLE interview_records DROP COLUMN IF EXISTS start_time;
 ALTER TABLE interview_records DROP COLUMN IF EXISTS end_time;

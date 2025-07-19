@@ -25,20 +25,20 @@ public class PythonScriptService {
     @Value("${python.interpreter}")
     private String pythonInterpreter;
 
-    @Value("${python.script_path}")
-    private String scriptPath;
+    @Value("${python.base_script_path}")
+    private String baseScriptPath;
 
-    public String runAllScripts(String audioPath, String videoPath) throws IOException, InterruptedException {
+    public String runAllScripts(String videoPath) throws IOException, InterruptedException {
         StringBuilder resultBuilder = new StringBuilder();
 
         // 1. audioemal.py audio_path
-//        resultBuilder.append(runScript(scriptPath + "/audioemoal.py", audioPath));
+        resultBuilder.append(runScript(baseScriptPath+"/audioemoal.py", videoPath));
 
         // 2. faceal.py --viedo video_path
-        resultBuilder.append(runScript(scriptPath + "/faceal.py", "--video", videoPath));
+        resultBuilder.append(runScript(baseScriptPath+"/faceal.py", "--video", videoPath));
 
         // 3. poseal.py --viedo video_path
-        resultBuilder.append(runScript(scriptPath + "/poseal.py", "--video", videoPath));
+        resultBuilder.append(runScript(baseScriptPath+"/poseal.py", "--video", videoPath));
         return resultBuilder.toString();
     }
 
@@ -53,7 +53,7 @@ public class PythonScriptService {
         pb.environment().put("PYTHONIOENCODING","utf-8");
         // 获取原有 PATH
         // 加入 conda虚拟环境中的ffmpeg 路径
-        pb.environment().compute("PATH", (k, path) -> path + ";D:/anaconda3/envs/interview/Library/bin");
+//        pb.environment().compute("PATH", (k, path) -> path + ";D:/miniconda3/envs/ship/Library/bin");
         Process process = pb.start();
 
         StringBuilder output = new StringBuilder();
