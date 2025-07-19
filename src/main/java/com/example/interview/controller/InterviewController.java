@@ -85,99 +85,84 @@ public class InterviewController {
                 )
             ),
             Map.of(
-                "category", "大数据",
+                "category", "数据科学",
                 "icon", "database",
                 "color", "#10b981",
                 "positions", List.of(
                     Map.of(
                         "type", "DATA_ENGINEER",
                         "title", "数据工程师",
-                        "description", "专注于数据处理、ETL、数据仓库等技术",
+                        "description", "负责数据管道构建、ETL流程设计和数据仓库管理",
                         "skills", List.of("SQL", "Python", "Spark", "Hadoop", "数据建模"),
                         "aiModel", "星火V4.0",
                         "difficulty", "中级"
-                    ),
-                    Map.of(
-                        "type", "DATA_SCIENTIST",
-                        "title", "数据科学家",
-                        "description", "专注于数据分析、统计建模、商业智能等",
-                        "skills", List.of("统计分析", "机器学习", "数据可视化", "商业分析", "R/Python"),
-                        "aiModel", "星火V4.0",
-                        "difficulty", "高级"
                     )
                 )
             ),
             Map.of(
                 "category", "物联网",
-                "icon", "cloud",
+                "icon", "wifi",
                 "color", "#f59e0b",
                 "positions", List.of(
                     Map.of(
                         "type", "IOT_ENGINEER",
                         "title", "物联网工程师",
-                        "description", "专注于传感器、嵌入式系统、IoT平台开发",
-                        "skills", List.of("嵌入式开发", "传感器技术", "IoT协议", "硬件设计", "云平台"),
+                        "description", "负责IoT设备开发、传感器数据处理和边缘计算",
+                        "skills", List.of("嵌入式开发", "传感器技术", "MQTT", "边缘计算", "硬件集成"),
                         "aiModel", "星火V4.0",
                         "difficulty", "中级"
-                    ),
-                    Map.of(
-                        "type", "IOT_ARCHITECT",
-                        "title", "IoT架构师",
-                        "description", "专注于IoT系统架构设计和优化",
-                        "skills", List.of("系统架构", "物联网协议", "安全设计", "性能优化", "技术选型"),
-                        "aiModel", "星火V4.0",
-                        "difficulty", "高级"
                     )
                 )
             ),
             Map.of(
-                "category", "智能系统",
-                "icon", "setting",
+                "category", "系统架构",
+                "icon", "server",
                 "color", "#8b5cf6",
                 "positions", List.of(
                     Map.of(
                         "type", "SYSTEM_ENGINEER",
                         "title", "系统工程师",
-                        "description", "专注于系统设计、性能优化、架构规划",
-                        "skills", List.of("系统设计", "性能优化", "架构规划", "技术选型", "团队协作"),
+                        "description", "负责系统架构设计、性能优化和运维自动化",
+                        "skills", List.of("系统设计", "微服务", "Docker", "Kubernetes", "监控运维"),
                         "aiModel", "星火V4.0",
                         "difficulty", "高级"
-                    ),
-                    Map.of(
-                        "type", "DEVOPS_ENGINEER",
-                        "title", "DevOps工程师",
-                        "description", "专注于自动化部署、监控、运维",
-                        "skills", List.of("Docker", "Kubernetes", "CI/CD", "监控告警", "自动化运维"),
-                        "aiModel", "星火V4.0",
-                        "difficulty", "中级"
                     )
                 )
             ),
             Map.of(
                 "category", "产品管理",
-                "icon", "user",
+                "icon", "briefcase",
                 "color", "#ef4444",
                 "positions", List.of(
                     Map.of(
                         "type", "PRODUCT_MANAGER",
                         "title", "产品经理",
-                        "description", "专注于产品规划、需求分析、用户体验",
-                        "skills", List.of("产品规划", "需求分析", "用户体验", "数据分析", "项目管理"),
+                        "description", "负责产品规划、需求分析和团队协作",
+                        "skills", List.of("产品规划", "需求分析", "用户研究", "项目管理", "数据分析"),
                         "aiModel", "星火V4.0",
                         "difficulty", "中级"
-                    ),
-                    Map.of(
-                        "type", "TECHNICAL_PRODUCT_MANAGER",
-                        "title", "技术产品经理",
-                        "description", "专注于技术产品规划和团队协作",
-                        "skills", List.of("技术理解", "产品规划", "团队协作", "技术选型", "项目管理"),
-                        "aiModel", "星火V4.0",
-                        "difficulty", "高级"
                     )
                 )
             )
         );
         return ResponseEntity.ok(types);
+    }
+
+    @GetMapping("/info/{type}")
+    public ResponseEntity<?> getInterviewInfo(@PathVariable String type) {
+        try {
+            String position = getPositionByType(type);
+            String aiModel = getAiModelByType(type);
+            String question = largeModelService.generateQuestion(type);
+            return ResponseEntity.ok(Map.of(
+                "question", question,
+                "position", position,
+                "aiModel", aiModel
+            ));
+        } catch (Exception e) {
+            logger.info("获取面试信息失败: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", "获取面试信息失败: " + e.getMessage()));
+        }
     }
 
     @PostMapping("/start/{type}")
@@ -194,7 +179,6 @@ public class InterviewController {
                     .interviewType(type)
                     .position(position)
                     .aiModel(aiModel)
-                    .startTime(LocalDateTime.now())
                     .build();
             InterviewRecord savedRecord = interviewRecordRepository.save(record);
             String question = largeModelService.generateQuestion(type);
@@ -212,8 +196,13 @@ public class InterviewController {
 
     @PostMapping("/end/{recordId}")
     public ResponseEntity<?> endInterview(@PathVariable Long recordId,
+                                        @RequestParam(required = false) Integer actualDuration,
                                         @RequestHeader("Authorization") String authHeader) {
         try {
+            logger.info("=== 结束面试 ===");
+            logger.info("recordId: {}", recordId);
+            logger.info("actualDuration: {}", actualDuration);
+            
             String username = jwtUtil.getUsernameFromToken(authHeader.replace("Bearer ", ""));
             User user = userRepository.findByUsername(username).orElseThrow();
             InterviewRecord record = interviewRecordRepository.findById(recordId)
@@ -221,8 +210,13 @@ public class InterviewController {
             if (!record.getUser().getId().equals(user.getId())) {
                 return ResponseEntity.badRequest().body(Map.of("error", "无权访问此面试记录"));
             }
-            // 更新面试记录
-            record.setEndTime(LocalDateTime.now());
+            // 保存实际面试时长
+            if (actualDuration != null && actualDuration > 0) {
+                logger.info("设置actualDuration: {}", actualDuration);
+                record.setActualDuration(actualDuration);
+            } else {
+                logger.info("actualDuration为空或无效: {}", actualDuration);
+            }
             // 生成AI评测报告（占位）
             record.setOverallScore(85.0);
             record.setOverallFeedback("整体表现良好，技术基础扎实，沟通能力有待提升");

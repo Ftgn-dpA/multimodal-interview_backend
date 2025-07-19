@@ -30,7 +30,7 @@ video:
   access-url-prefix: /videos/
 
 python:
-  interpreter: D:/miniconda3/envs/interview/python.exe
+  interpreter: D:/anaconda3/envs/interview/python.exe
   script_path: F:/multimodal-interview/backend/src/main/python
 
 logging:

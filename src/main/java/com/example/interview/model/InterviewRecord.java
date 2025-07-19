@@ -2,6 +2,8 @@ package com.example.interview.model;
 
 import javax.persistence.*;
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Entity
 @Table(name = "interview_records")
@@ -18,8 +20,10 @@ public class InterviewRecord {
     private String interviewType; // 面试类型：AI_ENGINEER, DATA_ENGINEER, IOT_ENGINEER, SYSTEM_ENGINEER, PRODUCT_MANAGER
     private String position; // 具体岗位名称
     private String aiModel; // 使用的AI模型
-    private LocalDateTime startTime;
-    private LocalDateTime endTime;
+    
+    // 实际面试时长（秒）
+    @JsonProperty("actualDuration")
+    private Integer actualDuration;
     
     // 视频和音频文件路径
     private String videoFilePath; // 面试视频文件路径
@@ -45,21 +49,18 @@ public class InterviewRecord {
     private String reportFilePath; // 生成的报告文件路径
     
     private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 
     public InterviewRecord() {
         this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
     }
 
-    public InterviewRecord(Long id, User user, String interviewType, String position, String aiModel, LocalDateTime startTime, LocalDateTime endTime, String videoFilePath, String audioFilePath, Double overallScore, String overallFeedback, String skillAssessment, String questionAnswers, String improvementSuggestions, String reportFilePath) {
+    public InterviewRecord(Long id, User user, String interviewType, String position, String aiModel, Integer actualDuration, String videoFilePath, String audioFilePath, Double overallScore, String overallFeedback, String skillAssessment, String questionAnswers, String improvementSuggestions, String reportFilePath) {
         this.id = id;
         this.user = user;
         this.interviewType = interviewType;
         this.position = position;
         this.aiModel = aiModel;
-        this.startTime = startTime;
-        this.endTime = endTime;
+        this.actualDuration = actualDuration;
         this.videoFilePath = videoFilePath;
         this.audioFilePath = audioFilePath;
         this.overallScore = overallScore;
@@ -69,7 +70,6 @@ public class InterviewRecord {
         this.improvementSuggestions = improvementSuggestions;
         this.reportFilePath = reportFilePath;
         this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
     }
 
     public static InterviewRecordBuilder builder() {
@@ -116,20 +116,12 @@ public class InterviewRecord {
         this.aiModel = aiModel;
     }
 
-    public LocalDateTime getStartTime() {
-        return startTime;
+    public Integer getActualDuration() {
+        return actualDuration;
     }
 
-    public void setStartTime(LocalDateTime startTime) {
-        this.startTime = startTime;
-    }
-
-    public LocalDateTime getEndTime() {
-        return endTime;
-    }
-
-    public void setEndTime(LocalDateTime endTime) {
-        this.endTime = endTime;
+    public void setActualDuration(Integer actualDuration) {
+        this.actualDuration = actualDuration;
     }
 
     public String getVideoFilePath() {
@@ -204,27 +196,13 @@ public class InterviewRecord {
         this.createdAt = createdAt;
     }
 
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-
-    @PreUpdate
-    public void preUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
-
     public static class InterviewRecordBuilder {
         private Long id;
         private User user;
         private String interviewType;
         private String position;
         private String aiModel;
-        private LocalDateTime startTime;
-        private LocalDateTime endTime;
+        private Integer actualDuration;
         private String videoFilePath;
         private String audioFilePath;
         private Double overallScore;
@@ -259,13 +237,8 @@ public class InterviewRecord {
             return this;
         }
 
-        public InterviewRecordBuilder startTime(LocalDateTime startTime) {
-            this.startTime = startTime;
-            return this;
-        }
-
-        public InterviewRecordBuilder endTime(LocalDateTime endTime) {
-            this.endTime = endTime;
+        public InterviewRecordBuilder actualDuration(Integer actualDuration) {
+            this.actualDuration = actualDuration;
             return this;
         }
 
@@ -310,7 +283,7 @@ public class InterviewRecord {
         }
 
         public InterviewRecord build() {
-            return new InterviewRecord(id, user, interviewType, position, aiModel, startTime, endTime, videoFilePath, audioFilePath, overallScore, overallFeedback, skillAssessment, questionAnswers, improvementSuggestions, reportFilePath);
+            return new InterviewRecord(id, user, interviewType, position, aiModel, actualDuration, videoFilePath, audioFilePath, overallScore, overallFeedback, skillAssessment, questionAnswers, improvementSuggestions, reportFilePath);
         }
     }
 } 

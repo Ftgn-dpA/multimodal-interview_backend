@@ -74,7 +74,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyze facial expressions in a video.")
     parser.add_argument("--video", type=str, help="Path to the input video file")
     args = parser.parse_args()
-
+    import feat
+    print(feat.__file__)
     review=analyze_facial_video(args.video)
     print(review)
 

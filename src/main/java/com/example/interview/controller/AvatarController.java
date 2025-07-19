@@ -63,6 +63,13 @@ public class AvatarController {
         return result;
     }
 
+    @GetMapping(value = "/stop", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public Map<String, Object> stopAvatarGet(@RequestParam String sessionId) {
+        // GET 请求的 stop 接口，用于页面刷新时的 session 清理
+        return stopAvatar(sessionId);
+    }
+
     @PostMapping(value = "/audio-interact", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public Map<String, Object> audioInteract(@RequestParam("sessionId") String sessionId,

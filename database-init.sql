@@ -16,8 +16,7 @@ CREATE TABLE interview_records (
     interview_type VARCHAR(64) NOT NULL,
     position VARCHAR(128) NOT NULL,
     ai_model VARCHAR(64),
-    start_time DATETIME,
-    end_time DATETIME,
+    actual_duration INT,
     video_file_path VARCHAR(255),
     audio_file_path VARCHAR(255),
     overall_score DOUBLE,
@@ -27,9 +26,14 @@ CREATE TABLE interview_records (
     improvement_suggestions TEXT,
     report_file_path VARCHAR(255),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 如果表已存在，删除冗余字段并添加 actual_duration 字段
+ALTER TABLE interview_records DROP COLUMN IF EXISTS start_time;
+ALTER TABLE interview_records DROP COLUMN IF EXISTS end_time;
+ALTER TABLE interview_records DROP COLUMN IF EXISTS updated_at;
+ALTER TABLE interview_records ADD COLUMN IF NOT EXISTS actual_duration INT AFTER ai_model;
 
 -- 创建面试报告表
 CREATE TABLE interview_reports (

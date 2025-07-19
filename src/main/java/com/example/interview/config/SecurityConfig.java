@@ -38,7 +38,7 @@ public class SecurityConfig {
             .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             .and()
             .authorizeRequests()
-            .antMatchers("/api/auth/register", "/api/auth/login", "/videos/**", "/api/avatar/**").permitAll()
+            .antMatchers("/api/auth/register", "/api/auth/login", "/videos/**", "/api/avatar/**", "/api/python/**").permitAll()
             .anyRequest().authenticated()
             .and()
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

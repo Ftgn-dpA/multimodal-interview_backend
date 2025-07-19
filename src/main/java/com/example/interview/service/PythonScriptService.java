@@ -32,7 +32,7 @@ public class PythonScriptService {
         StringBuilder resultBuilder = new StringBuilder();
 
         // 1. audioemal.py audio_path
-        resultBuilder.append(runScript(scriptPath + "/audioemoal.py", audioPath));
+//        resultBuilder.append(runScript(scriptPath + "/audioemoal.py", audioPath));
 
         // 2. faceal.py --viedo video_path
         resultBuilder.append(runScript(scriptPath + "/faceal.py", "--video", videoPath));
