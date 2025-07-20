@@ -48,7 +48,7 @@ public class AvatarWebSocketClient extends WebSocketClient {
         this.sceneId = sceneId;
         this.latch = latch;
         this.sessionId = sessionId;
-        System.out.println("[构造] AvatarWebSocketClient created, sessionId=" + sessionId + ", hashCode=" + this.hashCode());
+        // AvatarWebSocketClient 已创建
     }
     
     public void setAiResponseCallback(AiResponseCallback callback) {
@@ -66,7 +66,7 @@ public class AvatarWebSocketClient extends WebSocketClient {
 
     @Override
     public void onMessage(String message) {
-        System.out.println("[AI原始响应] " + message);
+        // AI原始响应已接收
         try {
             Map<String, Object> data = parseJson(message);
             Map<String, Object> header = (Map<String, Object>) data.get("header");
@@ -94,7 +94,7 @@ public class AvatarWebSocketClient extends WebSocketClient {
                         Map<String, Object> tts = (Map<String, Object>) nlp.get("ttsAnswer");
                         String aiResponseText = (String) tts.get("text");
                         
-                        // 获取流式分片信息
+                        // Get streaming fragment information
                         String requestId = (String) nlp.get("request_id");
                         int status = ((Number) nlp.getOrDefault("status", 0)).intValue();
                         
@@ -106,7 +106,7 @@ public class AvatarWebSocketClient extends WebSocketClient {
                                     ((com.example.interview.service.AiResponseService) aiResponseCallback).cacheAiResponseFragment(sessionId, requestId, aiResponseText, status);
                                 }
                             } catch (Exception e) {
-                                System.err.println("[AvatarWebSocketClient] 回调执行失败: " + e.getMessage());
+                                System.err.println("[AvatarWebSocketClient] Callback execution failed: " + e.getMessage());
                             }
                         }
                     }

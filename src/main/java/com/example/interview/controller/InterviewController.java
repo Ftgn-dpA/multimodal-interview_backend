@@ -42,14 +42,14 @@ public class InterviewController {
     private final InterviewReportRepository interviewReportRepository;
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
-        private final VideoStorageService videoStorageService;
+    private final VideoStorageService videoStorageService;
     private final AiResponseService aiResponseService;
 
     public InterviewController(LargeModelService largeModelService, 
-                            InterviewRecordRepository interviewRecordRepository,
-                            InterviewReportRepository interviewReportRepository,
-                            UserRepository userRepository, 
-                            JwtUtil jwtUtil,
+                             InterviewRecordRepository interviewRecordRepository,
+                             InterviewReportRepository interviewReportRepository,
+                             UserRepository userRepository, 
+                             JwtUtil jwtUtil,
                             VideoStorageService videoStorageService,
                             AiResponseService aiResponseService) {
         this.largeModelService = largeModelService;
@@ -164,8 +164,8 @@ public class InterviewController {
                 "aiModel", aiModel
             ));
         } catch (Exception e) {
-            logger.info("获取面试信息失败: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of("error", "获取面试信息失败: " + e.getMessage()));
+            logger.info("Failed to get interview info: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", "Failed to get interview info: " + e.getMessage()));
         }
     }
 
@@ -193,8 +193,8 @@ public class InterviewController {
                 "aiModel", aiModel
             ));
         } catch (Exception e) {
-            logger.info("启动面试失败: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of("error", "启动面试失败: " + e.getMessage()));
+            logger.info("Failed to start interview: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", "Failed to start interview: " + e.getMessage()));
         }
     }
 
@@ -202,76 +202,63 @@ public class InterviewController {
     public ResponseEntity<?> endInterview(@PathVariable Long recordId,
                                         @RequestParam(required = false) Integer actualDuration,
                                         @RequestParam(required = false) String sessionId,
+                                        @RequestParam(required = false) Long resumeId,
                                         @RequestHeader("Authorization") String authHeader) {
         try {
-            logger.info("=== 结束面试 ===");
+            logger.info("=== Ending interview ===");
             logger.info("recordId: {}", recordId);
             logger.info("actualDuration: {}", actualDuration);
+            logger.info("resumeId: {}", resumeId);
             
             String username = jwtUtil.getUsernameFromToken(authHeader.replace("Bearer ", ""));
             User user = userRepository.findByUsername(username).orElseThrow();
             InterviewRecord record = interviewRecordRepository.findById(recordId)
-                    .orElseThrow(() -> new RuntimeException("面试记录不存在"));
+                    .orElseThrow(() -> new RuntimeException("Interview record not found"));
             if (!record.getUser().getId().equals(user.getId())) {
-                return ResponseEntity.badRequest().body(Map.of("error", "无权访问此面试记录"));
+                return ResponseEntity.badRequest().body(Map.of("error", "No permission to access this interview record"));
             }
-            // 保存实际面试时长
+            
+            // Save actual interview duration
             if (actualDuration != null && actualDuration > 0) {
-                logger.info("设置actualDuration: {}", actualDuration);
+                logger.info("Setting actualDuration: {}", actualDuration);
                 record.setActualDuration(actualDuration);
             } else {
-                logger.info("actualDuration为空或无效: {}", actualDuration);
+                logger.info("actualDuration is null or invalid: {}", actualDuration);
             }
-            // 生成AI评测报告（占位）
-            record.setOverallScore(85.0);
-            record.setOverallFeedback("整体表现良好，技术基础扎实，沟通能力有待提升");
-            record.setSkillAssessment("{\"技术能力\":85,\"沟通能力\":70,\"问题解决\":80,\"学习能力\":90}");
-            record.setImprovementSuggestions("{\"建议\":[\"加强STAR结构回答\",\"提升眼神交流\",\"增加具体案例\"]}");
-            InterviewRecord savedRecord = interviewRecordRepository.save(record);
-            // 创建面试报告
-            InterviewReport report = new InterviewReport();
-            report.setInterviewRecord(savedRecord);
-            report.setOverallScore(85.0);
-            report.setOverallFeedback("整体表现良好，技术基础扎实，沟通能力有待提升");
-            report.setSkillRadarData("{\"技术能力\":85,\"沟通能力\":70,\"问题解决\":80,\"学习能力\":90,\"团队协作\":75,\"创新思维\":80}");
-            report.setKeyIssues("{\"问题\":[\"回答结构不够清晰\",\"缺乏具体案例支撑\",\"技术深度有待提升\"]}");
-            report.setImprovementSuggestions("{\"建议\":[\"加强STAR结构回答\",\"提升眼神交流\",\"增加具体案例\",\"深入学习相关技术\"]}");
-            report.setPerformanceAnalysis("面试者在技术基础方面表现良好，能够回答大部分技术问题。但在表达和案例分享方面还有提升空间。建议加强结构化思维训练。");
-            report.setTechnicalAssessment("技术基础扎实，对核心概念理解到位。在高级技术问题上需要更深入的学习和实践。");
-            report.setSoftSkillAssessment("沟通能力中等，需要提升表达的逻辑性和条理性。团队协作意识良好，但缺乏具体案例支撑。");
-            report.setGeneratedAt(LocalDateTime.now());
-            report.setReportFilePath("/reports/" + savedRecord.getId() + "_report.pdf");
-            interviewReportRepository.save(report);
             
-            // 批量保存所有缓存的AI回复（与历史记录生成时机一致）
-            // 注意：只有正常结束面试才会执行到这里，直接退出不会保存AI回复
+            // Batch save all cached AI responses (consistent with history record generation timing)
+            // Note: Only normal interview endings will execute here, direct exits won't save AI responses
             try {
                 if (sessionId != null && !sessionId.isEmpty()) {
                     int cachedCount = aiResponseService.getCachedResponseCount(sessionId);
                     if (cachedCount > 0) {
-                        logger.info("正常结束面试，开始批量保存AI回复，sessionId: {}, 缓存数量: {}", sessionId, cachedCount);
+                        logger.info("Normal interview ending, starting batch save of AI responses, sessionId: {}, cached count: {}", sessionId, cachedCount);
                         aiResponseService.batchSaveAiResponses(sessionId, recordId);
-                        logger.info("AI回复批量保存完成，与历史记录同步");
+                        logger.info("AI responses batch save completed, synchronized with history records");
                     } else {
-                        logger.info("正常结束面试，没有缓存的AI回复需要保存，sessionId: {}", sessionId);
+                        logger.info("Normal interview ending, no cached AI responses to save, sessionId: {}", sessionId);
                     }
                 } else {
-                    logger.info("正常结束面试，sessionId为空，跳过AI回复保存");
+                    logger.info("Normal interview ending, sessionId is empty, skipping AI response save");
                 }
             } catch (Exception e) {
-                logger.error("批量保存AI回复失败: {}", e.getMessage());
-                // AI回复保存失败不影响历史记录生成，只记录错误
+                logger.error("Failed to batch save AI responses: {}", e.getMessage());
+                // AI response save failure doesn't affect history record generation, only log error
             }
             
+            // Save interview record (without analysis results, waiting for subsequent analysis)
+            InterviewRecord savedRecord = interviewRecordRepository.save(record);
+            
+            // Return basic info, frontend can call analysis endpoint
             return ResponseEntity.ok(Map.of(
-                "message", "面试结束",
+                "message", "Interview ended, can start analysis",
                 "recordId", savedRecord.getId(),
-                "overallScore", savedRecord.getOverallScore(),
-                "overallFeedback", savedRecord.getOverallFeedback()
+                "canAnalyze", savedRecord.getVideoFilePath() != null,
+                "analysisEndpoint", "/api/interview/analyze/" + savedRecord.getId()
             ));
         } catch (Exception e) {
-            logger.info("结束面试失败: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of("error", "结束面试失败: " + e.getMessage()));
+            logger.info("Failed to end interview: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", "Failed to end interview: " + e.getMessage()));
         }
     }
 
@@ -284,10 +271,10 @@ public class InterviewController {
             User user = userRepository.findByUsername(username).orElseThrow();
             
             InterviewRecord record = interviewRecordRepository.findById(recordId)
-                    .orElseThrow(() -> new RuntimeException("面试记录不存在"));
+                    .orElseThrow(() -> new RuntimeException("Interview record not found"));
             
             if (!record.getUser().getId().equals(user.getId())) {
-                return ResponseEntity.badRequest().body(Map.of("error", "无权访问此面试记录"));
+                return ResponseEntity.badRequest().body(Map.of("error", "No permission to access this interview record"));
             }
             
             // 使用VideoStorageService保存视频文件
@@ -297,14 +284,14 @@ public class InterviewController {
             interviewRecordRepository.save(record);
             
             return ResponseEntity.ok(Map.of(
-                "message", "视频上传成功", 
+                "message", "Video upload successful", 
                 "videoPath", videoPath,
                 "fullUrl", "http://localhost:8080/api/video" + videoPath.replace("/videos/", "/")
             ));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", "视频上传失败: " + e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("error", "Video upload failed: " + e.getMessage()));
         }
     }
 
@@ -317,7 +304,7 @@ public class InterviewController {
             // 只返回所有面试记录（或如需只保留COMPLETED，可直接返回records）
             return ResponseEntity.ok(records);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", "获取历史记录失败: " + e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("error", "Failed to get history records: " + e.getMessage()));
         }
     }
 
@@ -325,24 +312,24 @@ public class InterviewController {
     public ResponseEntity<?> getRecordDetail(@PathVariable Long recordId,
                                            @RequestHeader("Authorization") String authHeader) {
         try {
-            logger.info("=== 获取面试记录详情 ===");
+            logger.info("=== Getting interview record details ===");
             logger.info("recordId: {}", recordId);
             String username = jwtUtil.getUsernameFromToken(authHeader.replace("Bearer ", ""));
             logger.info("username: {}", username);
             User user = userRepository.findByUsername(username).orElseThrow();
             InterviewRecord record = interviewRecordRepository.findById(recordId)
-                    .orElseThrow(() -> new RuntimeException("面试记录不存在"));
-            logger.info("找到记录: {}, 用户: {}", record.getId(), record.getUser().getUsername());
+                    .orElseThrow(() -> new RuntimeException("Interview record not found"));
+            logger.info("Found record: {}, user: {}", record.getId(), record.getUser().getUsername());
             if (!record.getUser().getId().equals(user.getId())) {
-                logger.info("权限验证失败");
-                return ResponseEntity.badRequest().body(Map.of("error", "无权访问此面试记录"));
+                logger.info("Permission verification failed");
+                return ResponseEntity.badRequest().body(Map.of("error", "No permission to access this interview record"));
             }
-            logger.info("返回记录详情");
+            logger.info("Returning record details");
             return ResponseEntity.ok(record);
         } catch (Exception e) {
-            logger.info("获取记录详情失败: {}", e.getMessage());
+            logger.info("Failed to get record details: {}", e.getMessage());
             e.printStackTrace();
-            return ResponseEntity.badRequest().body(Map.of("error", "获取记录详情失败: " + e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("error", "Failed to get record details: " + e.getMessage()));
         }
     }
 
@@ -354,10 +341,10 @@ public class InterviewController {
             User user = userRepository.findByUsername(username).orElseThrow();
 
             InterviewRecord record = interviewRecordRepository.findById(recordId)
-                    .orElseThrow(() -> new RuntimeException("面试记录不存在"));
+                    .orElseThrow(() -> new RuntimeException("Interview record not found"));
 
             if (!record.getUser().getId().equals(user.getId())) {
-                return ResponseEntity.badRequest().body(Map.of("error", "无权访问此面试记录"));
+                return ResponseEntity.badRequest().body(Map.of("error", "No permission to access this interview record"));
             }
 
             // 删除视频文件
@@ -370,9 +357,9 @@ public class InterviewController {
             // 删除面试记录
             interviewRecordRepository.delete(record);
 
-            return ResponseEntity.ok(Map.of("message", "删除成功"));
+            return ResponseEntity.ok(Map.of("message", "Delete successful"));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", "删除失败: " + e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("error", "Delete failed: " + e.getMessage()));
         }
     }
 

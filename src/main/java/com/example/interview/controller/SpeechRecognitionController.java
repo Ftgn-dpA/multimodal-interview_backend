@@ -15,7 +15,7 @@ public class SpeechRecognitionController {
     public ResponseEntity<?> recognize(@RequestParam String audioPath) {
         try {
             String result = recognitionService.recognizeAudio(audioPath);
-            System.out.println(result);
+            // 语音识别完成
             return ResponseEntity.ok().body(result);
         } catch (Exception e) {
             return ResponseEntity.status(500).body("识别失败: " + e.getMessage());

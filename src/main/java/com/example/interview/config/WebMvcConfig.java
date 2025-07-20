@@ -31,7 +31,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
         String urlPrefix = videoStorageConfig.getAccessUrlPrefix();
         String resourceLocation = "file:/" + videoPath.replace("\\", "/");
         if (!resourceLocation.endsWith("/")) resourceLocation += "/";
-        logger.info("[WebMvcConfig] 静态资源映射: {}** -> {}", urlPrefix, resourceLocation);
+        logger.info("[WebMvcConfig] Static resource mapping: {}** -> {}", urlPrefix, resourceLocation);
         registry.addResourceHandler(urlPrefix + "**")
                 .addResourceLocations(resourceLocation);
     }

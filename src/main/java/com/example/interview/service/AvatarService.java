@@ -30,19 +30,18 @@ public class AvatarService {
     public Map<String, Object> startSession() throws Exception {
         Map<String, Object> result = new HashMap<>();
         try {
-            System.out.println("[AvatarService] startSession begin, config: " + config);
+            // AvatarService starting session
             String baseUrl = "wss://avatar.cn-huadong-1.xf-yun.com/v1/interact";
-            System.out.println("[AvatarService] baseUrl: " + baseUrl);
+            // Virtual human service config loaded
             String authUrl = com.example.interview.util.AuthUtil.assembleAuthUrl(baseUrl, "GET", config.apiKey, config.apiSecret);
-            System.out.println("[AvatarService] authUrl: " + authUrl);
             CountDownLatch latch = new CountDownLatch(1);
             String tmpSessionId;
             do {
                 tmpSessionId = UUID.randomUUID().toString();
             } while (sessionMap.containsKey(tmpSessionId));
             final String sessionId = tmpSessionId;
-            System.out.println("[AvatarService] generated sessionId: " + sessionId);
-            // 防御性：如果已存在，先移除
+            // Session ID generated
+            // Defensive: if exists, remove first
             AvatarWebSocketClient old = sessionMap.remove(sessionId);
             if (old != null) old.stopClient();
             AvatarWebSocketClient client = new AvatarWebSocketClient(
@@ -55,41 +54,41 @@ public class AvatarService {
                     sessionId
             );
             
-            // 设置AI回复回调
+            // Set AI response callback
             client.setAiResponseCallback(aiResponseService);
             sessionMap.put(sessionId, client);
-            System.out.println("[AvatarService] put sessionId=" + sessionId + ", client hashCode=" + client.hashCode());
+            // Client added to session map
             Thread wsThread = new Thread(() -> {
                 try {
-                    System.out.println("[thread] connectBlocking() start, sessionId=" + sessionId + ", client hashCode=" + client.hashCode());
+                    // WebSocket connection starting
                     client.connectBlocking();
                     while (client.isActive() && !client.isClosed()) {
                         Thread.sleep(100);
                     }
                 } catch (Exception e) {
-                    // 线程异常时自动关闭
-                    // client.status.set(false); // 不再直接访问私有字段
-                    System.out.println("[thread] run error: " + e.getMessage());
+                    // Thread exception auto close
+                    // client.status.set(false); // No longer directly access private field
+                    // WebSocket connection exception
                     e.printStackTrace();
                 }
             });
             wsThread.setDaemon(true);
             wsThread.start();
-            System.out.println("[AvatarService] started thread for sessionId=" + sessionId + ", client hashCode=" + client.hashCode());
-            // 健壮等待streamUrl返回，最多等待10秒
+            // WebSocket thread started
+            // Robust wait for streamUrl return, max 10 seconds
             boolean gotStream = latch.await(10, TimeUnit.SECONDS);
-            System.out.println("[AvatarService] latch await result: " + gotStream);
+            // Wait for stream URL result
             result.put("session", sessionId);
             if (gotStream && client.getStreamUrl() != null) {
-                System.out.println("[AvatarService] got streamUrl: " + client.getStreamUrl());
+                // Stream URL obtained
                 result.put("stream_url", client.getStreamUrl());
                 result.put("api_url", "https://rtc-api.xf-yun.com/v1/rtc/play/"); // 信令API地址，按实际服务商填写
                 result.put("status", "ok");
             } else {
-                System.out.println("[AvatarService] failed to get streamUrl, gotStream: " + gotStream + ", streamUrl: " + client.getStreamUrl());
+                // Failed to get stream URL
                 result.put("status", "fail");
                 result.put("msg", "未获取到streamUrl，已自动关闭会话");
-                // 超时主动关闭并移除
+                // Timeout auto close and remove
                 client.stopClient();
                 sessionMap.remove(sessionId);
             }
@@ -100,7 +99,7 @@ public class AvatarService {
             result.put("msg", "启动虚拟人失败: " + e.getMessage());
             result.put("session", null);
         }
-        System.out.println("[AvatarService] startSession result: " + result);
+        // Session startup completed
         return result;
     }
 
@@ -135,7 +134,7 @@ public class AvatarService {
         if (client == null) {
             result.put("status", "fail");
             result.put("msg", "avatar会话未启动或已关闭");
-            System.out.println("[audioInteract] sessionId=" + sessionId + " 未找到对应WebSocketClient");
+            // 未找到对应的WebSocket客户端
             return result;
         }
         try {
@@ -147,7 +146,7 @@ public class AvatarService {
             int seq = 0;
             String requestId = UUID.randomUUID().toString(); // 单次请求的唯一ID
             
-            System.out.println("[audioInteract] 开始推送音频，总字节数=" + total + ", 预计帧数=" + ((total + frameSize - 1) / frameSize));
+            // Start pushing audio data
             
             for (int offset = 0; offset < total; offset += frameSize) {
                 int len = Math.min(frameSize, total - offset);
@@ -155,42 +154,42 @@ public class AvatarService {
                 System.arraycopy(audioBytes, offset, frame, 0, len);
                 String base64Audio = Base64.getEncoder().encodeToString(frame);
                 
-                // 严格按照协议：0=开始，1=中间，2=结束
+                // Strictly follow protocol: 0=start, 1=middle, 2=end
                 int status;
                 if (offset == 0) {
-                    status = 0; // 首帧：开始
+                    status = 0; // First frame: start
                 } else if (offset + len >= total) {
-                    status = 2; // 尾帧：结束
+                    status = 2; // Last frame: end
                 } else {
-                    status = 1; // 中间帧：中间
+                    status = 1; // Middle frame: middle
                 }
                 
                 Map<String, Object> msg = new HashMap<>();
                 
-                // Header部分 - 严格按照协议
+                // Header part - strictly follow protocol
                 Map<String, Object> header = new HashMap<>();
                 header.put("app_id", client.getAppId());
                 header.put("ctrl", "audio_interact");
                 header.put("request_id", requestId);
                 msg.put("header", header);
                 
-                // Parameter部分 - 使用asr而不是avatar_dispatch
+                // Parameter part - use asr instead of avatar_dispatch
                 Map<String, Object> parameter = new HashMap<>();
                 Map<String, Object> asr = new HashMap<>();
-                asr.put("full_duplex", 0); // 0=按住说话语音识别
+                asr.put("full_duplex", 0); // 0=hold to talk speech recognition
                 parameter.put("asr", asr);
                 msg.put("parameter", parameter);
                 
-                // Payload.audio部分 - 严格按照协议
+                // Payload.audio part - strictly follow protocol
                 Map<String, Object> payload = new HashMap<>();
                 Map<String, Object> audio = new HashMap<>();
-                audio.put("encoding", "raw"); // 使用raw编码
+                audio.put("encoding", "raw"); // Use raw encoding
                 audio.put("sample_rate", 16000);
                 audio.put("channels", 1);
                 audio.put("bit_depth", 16);
                 audio.put("status", status);
                 audio.put("seq", seq);
-                audio.put("frame_size", len); // 实际帧大小
+                audio.put("frame_size", len); // Actual frame size
                 audio.put("audio", base64Audio);
                 payload.put("audio", audio);
                 msg.put("payload", payload);
@@ -198,19 +197,19 @@ public class AvatarService {
                 client.sendRawJson(msg);
                 seq++;
                 
-                // 极致性能：最小延迟，但避免平台限流
-                if (status != 2) { // 不是最后一帧才延迟
-                    Thread.sleep(10); // 10ms间隔，极致速度
+                // Ultimate performance: minimal delay, but avoid platform throttling
+                if (status != 2) { // Only delay if not last frame
+                    Thread.sleep(10); // 10ms interval, ultimate speed
                 }
             }
             
-            System.out.println("[audioInteract] 音频推送完成，总帧数=" + seq);
+            // Audio push completed
             result.put("status", "ok");
             result.put("msg", "音频已发送，等待平台响应");
         } catch (IOException | InterruptedException e) {
             result.put("status", "fail");
             result.put("msg", "音频处理异常: " + e.getMessage());
-            System.out.println("[audioInteract] 音频处理异常: " + e.getMessage());
+            // Audio processing exception
         }
         return result;
     }

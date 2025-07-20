@@ -4,6 +4,7 @@ import com.example.interview.model.Resume;
 import com.example.interview.repository.ResumeRepository;
 import com.example.interview.repository.UserRepository;
 import com.example.interview.model.User;
+import com.example.interview.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
@@ -15,8 +16,6 @@ import java.io.*;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 
 @RestController
 @RequestMapping("/api/resume")
@@ -26,27 +25,30 @@ public class ResumeController {
     private ResumeRepository resumeRepository;
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private JwtUtil jwtUtil;
 
     // 你可以改成 application.yml 配置
     private static final String RESUME_ROOT_DIR = "F:/interview-resumes/";
 
-    // 获取当前登录用户ID（JWT+Spring Security）
-    private Long getCurrentUserId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
+    // 获取当前登录用户ID（JWT认证）
+    private Long getCurrentUserId(String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        String username = jwtUtil.getUsernameFromToken(token);
         User user = userRepository.findByUsername(username).orElse(null);
         if (user == null) throw new RuntimeException("用户不存在");
         return user.getId();
     }
 
     @PostMapping("/upload")
-    public ResponseEntity<?> uploadResume(@RequestParam("file") MultipartFile file) throws IOException {
+    public ResponseEntity<?> uploadResume(@RequestParam("file") MultipartFile file,
+                                        @RequestHeader("Authorization") String authHeader) throws IOException {
         if (!file.getOriginalFilename().toLowerCase().endsWith(".pdf")) {
             return ResponseEntity.badRequest().body("只支持PDF文件");
         }
         // 获取当前用户名
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
+        String token = authHeader.replace("Bearer ", "");
+        String username = jwtUtil.getUsernameFromToken(token);
         // 构建用户子目录
         File userDir = new File(RESUME_ROOT_DIR + username + "/");
         if (!userDir.exists()) userDir.mkdirs();
@@ -59,7 +61,7 @@ public class ResumeController {
         String dbPath = username + "/" + filename;
 
         Resume resume = new Resume();
-        resume.setUserId(getCurrentUserId());
+        resume.setUserId(getCurrentUserId(authHeader));
         resume.setFilename(dbPath);
         resume.setOriginalName(file.getOriginalFilename());
         resume.setUploadTime(new Timestamp(System.currentTimeMillis()));
@@ -69,14 +71,15 @@ public class ResumeController {
     }
 
     @GetMapping("/list")
-    public List<Resume> listResumes() {
-        return resumeRepository.findByUserId(getCurrentUserId());
+    public List<Resume> listResumes(@RequestHeader("Authorization") String authHeader) {
+        return resumeRepository.findByUserId(getCurrentUserId(authHeader));
     }
 
     @GetMapping("/download/{id}")
-    public ResponseEntity<Resource> downloadResume(@PathVariable Long id) throws IOException {
+    public ResponseEntity<Resource> downloadResume(@PathVariable Long id,
+                                                 @RequestHeader("Authorization") String authHeader) throws IOException {
         Resume resume = resumeRepository.findById(id).orElse(null);
-        if (resume == null || !resume.getUserId().equals(getCurrentUserId())) {
+        if (resume == null || !resume.getUserId().equals(getCurrentUserId(authHeader))) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         File file = new File(RESUME_ROOT_DIR + resume.getFilename());
@@ -91,9 +94,10 @@ public class ResumeController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteResume(@PathVariable Long id) {
+    public ResponseEntity<?> deleteResume(@PathVariable Long id,
+                                        @RequestHeader("Authorization") String authHeader) {
         Resume resume = resumeRepository.findById(id).orElse(null);
-        if (resume == null || !resume.getUserId().equals(getCurrentUserId())) {
+        if (resume == null || !resume.getUserId().equals(getCurrentUserId(authHeader))) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         File file = new File(RESUME_ROOT_DIR + resume.getFilename());

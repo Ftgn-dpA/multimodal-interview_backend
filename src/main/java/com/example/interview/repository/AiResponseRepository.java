@@ -8,22 +8,27 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Map;
 
 @Repository
 public interface AiResponseRepository extends JpaRepository<AiResponse, Long> {
     
-    // 根据面试记录ID查询所有AI回复
+    // JPA Repository 方法 - 与 AiResponseService 兼容
     List<AiResponse> findByInterviewRecord(InterviewRecord interviewRecord);
     
-    // 根据面试记录ID查询所有AI回复
     @Query("SELECT ar FROM AiResponse ar WHERE ar.interviewRecord.id = :recordId")
     List<AiResponse> findByInterviewRecordId(@Param("recordId") Long recordId);
     
-    // 根据用户ID查询所有AI回复
     @Query("SELECT ar FROM AiResponse ar WHERE ar.interviewRecord.user.id = :userId")
     List<AiResponse> findByUserId(@Param("userId") Long userId);
     
-    // 统计某个面试记录的AI回复数量
     @Query("SELECT COUNT(ar) FROM AiResponse ar WHERE ar.interviewRecord.id = :recordId")
     Long countByInterviewRecordId(@Param("recordId") Long recordId);
+    
+    // 原生SQL查询方法 - 用于 InterviewAnalysisController
+    @Query(value = "SELECT * FROM ai_responses WHERE interview_record_id = :recordId", nativeQuery = true)
+    List<Map<String, Object>> findRawByInterviewRecordId(@Param("recordId") Long recordId);
+    
+    @Query(value = "SELECT ai_responses FROM interview_records WHERE id = :recordId", nativeQuery = true)
+    String findAiResponsesByRecordId(@Param("recordId") Long recordId);
 } 

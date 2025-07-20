@@ -15,7 +15,7 @@ public class ResumeParseController {
     public String parseResume(@RequestParam("file") MultipartFile file) {
         try {
             String result=resumeParseService.parseResume(file);
-            System.out.println(result);
+            // 简历解析完成
             return resumeParseService.parseResume(file);
         } catch (Exception e) {
             return "解析失败: " + e.getMessage();

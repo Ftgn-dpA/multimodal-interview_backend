@@ -23,10 +23,10 @@ public class PythonController {
     @PostMapping("/analyze")
     public ResponseEntity<?> analyze(@RequestParam String videoPath) {
         try {
-            String result = pythonScriptService.runAllScripts(videoPath);
+            String result = pythonScriptService.runAllScripts(videoPath, null);
             //String modelResponse = largeModelService.sendToModel(result);
             //return ResponseEntity.ok(modelResponse);
-            System.out.println(result);
+            // Python脚本执行完成
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());

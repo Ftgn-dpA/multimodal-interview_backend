@@ -9,11 +9,11 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
-        format_sql: true
+        format_sql: false
   servlet:
     multipart:
       max-file-size: 1GB
@@ -37,13 +37,23 @@ logging:
   charset:
     console: UTF-8
   level:
+    root: INFO
     org:
       hibernate:
-        SQL: off
+        SQL: OFF
         type:
           descriptor:
             sql:
-              BasicBinder: off 
+              BasicBinder: OFF
+    com:
+      example:
+        interview:
+          service:
+            AiResponseService: WARN
+            BigModelService: WARN
+            LargeModelService: WARN
+          controller:
+            InterviewAnalysisController: WARN 
 
 # 讯飞虚拟人avatar服务配置
 avatar:

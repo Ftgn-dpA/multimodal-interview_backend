@@ -33,13 +33,12 @@ public class AiResponseService implements com.example.interview.ws.AvatarWebSock
      * 保存AI回复记录
      */
     public AiResponse saveAiResponse(Long interviewRecordId, String aiResponse) {
-        System.out.println("[AiResponseService] 开始保存AI回复: recordId=" + interviewRecordId);
+        // 静默保存，不输出详细信息
         
         try {
             Optional<InterviewRecord> recordOpt = interviewRecordRepository.findById(interviewRecordId);
             if (recordOpt.isPresent()) {
                 InterviewRecord record = recordOpt.get();
-                System.out.println("[AiResponseService] 找到面试记录: " + record.getId());
                 
                 AiResponse aiResponseEntity = new AiResponse(
                     record, 
@@ -47,15 +46,11 @@ public class AiResponseService implements com.example.interview.ws.AvatarWebSock
                 );
                 
                 AiResponse savedResponse = aiResponseRepository.save(aiResponseEntity);
-                System.out.println("[AiResponseService] AI回复保存成功: ID=" + savedResponse.getId());
                 return savedResponse;
             } else {
-                System.err.println("[AiResponseService] 面试记录不存在: " + interviewRecordId);
                 throw new RuntimeException("面试记录不存在: " + interviewRecordId);
             }
         } catch (Exception e) {
-            System.err.println("[AiResponseService] 保存AI回复失败: " + e.getMessage());
-            e.printStackTrace();
             throw e;
         }
     }
@@ -100,33 +95,24 @@ public class AiResponseService implements com.example.interview.ws.AvatarWebSock
      * 简单测试保存方法 - 使用指定的面试记录ID
      */
     public AiResponse testSaveAiResponse(Long interviewRecordId, String aiResponse) {
-        System.out.println("[AiResponseService] 开始测试保存AI回复: recordId=" + interviewRecordId);
-        
         try {
             // 先查找面试记录
             Optional<InterviewRecord> recordOpt = interviewRecordRepository.findById(interviewRecordId);
             if (!recordOpt.isPresent()) {
-                System.err.println("[AiResponseService] 面试记录不存在: " + interviewRecordId);
                 throw new RuntimeException("面试记录不存在: " + interviewRecordId);
             }
             
             InterviewRecord record = recordOpt.get();
-            System.out.println("[AiResponseService] 找到面试记录: " + record.getId());
             
             // 创建AiResponse对象并关联面试记录
             AiResponse aiResponseEntity = new AiResponse();
             aiResponseEntity.setInterviewRecord(record);
             aiResponseEntity.setAiResponse(aiResponse);
             
-            System.out.println("[AiResponseService] 准备保存: " + aiResponseEntity);
-            
             AiResponse savedResponse = aiResponseRepository.save(aiResponseEntity);
-            System.out.println("[AiResponseService] 测试保存成功: ID=" + savedResponse.getId());
             return savedResponse;
             
         } catch (Exception e) {
-            System.err.println("[AiResponseService] 测试保存失败: " + e.getMessage());
-            e.printStackTrace();
             throw e;
         }
     }
@@ -157,7 +143,7 @@ public class AiResponseService implements com.example.interview.ws.AvatarWebSock
                 }
             }
         } catch (Exception e) {
-            System.err.println("[AiResponseService] 缓存AI回复片段失败: " + e.getMessage());
+            // 静默处理缓存错误
         }
     }
     
@@ -169,7 +155,7 @@ public class AiResponseService implements com.example.interview.ws.AvatarWebSock
             // 直接添加到完整回复缓存
             responseCache.computeIfAbsent(sessionId, k -> new java.util.ArrayList<>()).add(aiResponseFragment);
         } catch (Exception e) {
-            System.err.println("[AiResponseService] 缓存AI回复失败: " + e.getMessage());
+            // 静默处理缓存错误
         }
     }
     
@@ -222,7 +208,6 @@ public class AiResponseService implements com.example.interview.ws.AvatarWebSock
             responseCache.remove(sessionId);
             
         } catch (Exception e) {
-            System.err.println("[AiResponseService] 批量保存失败: " + e.getMessage());
             throw e;
         }
     }
@@ -240,7 +225,6 @@ public class AiResponseService implements com.example.interview.ws.AvatarWebSock
      */
     public void clearCache(String sessionId) {
         responseCache.remove(sessionId);
-        System.out.println("[AiResponseService] 已清除sessionId " + sessionId + " 的缓存");
     }
 
     /**
@@ -259,10 +243,8 @@ public class AiResponseService implements com.example.interview.ws.AvatarWebSock
      * 可以定期调用此方法清理长时间未活动的缓存
      */
     public void cleanupExpiredCache() {
-        int beforeSize = responseCache.size();
         // 这里可以添加过期时间逻辑，比如清理超过1小时的缓存
         // 目前简单清理所有缓存
         responseCache.clear();
-        System.out.println("[AiResponseService] 清理过期缓存，清理前: " + beforeSize + " 个面试记录");
     }
 } 

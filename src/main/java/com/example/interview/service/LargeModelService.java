@@ -17,7 +17,7 @@ public class LargeModelService {
             case "video":
                 return getVideoInterviewQuestion();
             default:
-                return "请简要介绍一下你自己。";
+                return "";
         }
     }
 

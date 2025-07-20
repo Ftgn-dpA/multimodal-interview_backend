@@ -37,42 +37,42 @@ public class VideoStorageService {
     private InterviewRecordRepository interviewRecordRepository;
 
     /**
-     * 保存视频文件
-     * @param videoFile 视频文件
-     * @param recordId 面试记录ID
-     * @return 保存后的文件路径
+     * Save video file
+     * @param videoFile Video file
+     * @param recordId Interview record ID
+     * @return Saved file path
      */
     public String saveVideo(MultipartFile videoFile, Long recordId) throws IOException {
-        // 检查文件是否为空
+        // Check if file is empty
         if (videoFile.isEmpty()) {
-            logger.info("[saveVideo] 上传文件为空");
-            throw new IllegalArgumentException("视频文件不能为空");
+            logger.info("[saveVideo] Uploaded file is empty");
+            throw new IllegalArgumentException("Video file cannot be empty");
         }
 
-        // 检查文件大小
+        // Check file size
         long fileSize = videoFile.getSize();
         long maxSizeBytes = parseSize(maxSize);
-        logger.info("[saveVideo] 文件大小: {} 字节，最大允许: {} 字节", fileSize, maxSizeBytes);
+        logger.info("[saveVideo] File size: {} bytes, max allowed: {} bytes", fileSize, maxSizeBytes);
         if (fileSize > maxSizeBytes) {
-            logger.info("[saveVideo] 文件过大");
-            throw new IllegalArgumentException("视频文件大小超过限制: " + maxSize);
+            logger.info("[saveVideo] File too large");
+            throw new IllegalArgumentException("Video file size exceeds limit: " + maxSize);
         }
 
-        // 检查文件类型
+        // Check file type
         String contentType = videoFile.getContentType();
-        logger.info("[saveVideo] 文件类型: {}", contentType);
+        logger.info("[saveVideo] File type: {}", contentType);
         if (contentType == null || !contentType.startsWith("video/")) {
-            logger.info("[saveVideo] 文件类型非法");
-            throw new IllegalArgumentException("文件类型必须是视频格式");
+            logger.info("[saveVideo] Invalid file type");
+            throw new IllegalArgumentException("File type must be video format");
         }
 
-        // 创建存储目录
+        // Create storage directory
         Path storageDir = Paths.get(storagePath);
         if (!Files.exists(storageDir)) {
             Files.createDirectories(storageDir);
-            logger.info("[saveVideo] 创建存储目录: {}", storageDir.toString());
+            logger.info("[saveVideo] Created storage directory: {}", storageDir.toString());
         } else {
-            logger.info("[saveVideo] 存储目录已存在: {}", storageDir.toString());
+            logger.info("[saveVideo] Storage directory already exists: {}", storageDir.toString());
         }
 
         // 生成文件名
@@ -82,40 +82,40 @@ public class VideoStorageService {
         String uuid = UUID.randomUUID().toString().substring(0, 8);
         String filename = String.format("%d_%s_%s%s", recordId, timestamp, uuid, extension);
 
-        // 保存文件
+        // Save file
         Path filePath = storageDir.resolve(filename);
-        logger.info("[saveVideo] 保存视频到: {}", filePath.toString());
+        logger.info("[saveVideo] Saving video to: {}", filePath.toString());
         try {
             Files.copy(videoFile.getInputStream(), filePath);
-            logger.info("[saveVideo] 文件保存成功");
+            logger.info("[saveVideo] File saved successfully");
         } catch (Exception e) {
-            logger.error("[saveVideo] 文件保存异常", e);
+            logger.error("[saveVideo] File save exception", e);
             throw e;
         }
 
-        // 返回相对路径
+        // Return relative path
         return "/videos/" + filename;
     }
 
     /**
-     * 获取视频文件的完整路径
-     * @param relativePath 相对路径
-     * @return 完整文件路径
+     * Get full path of video file
+     * @param relativePath Relative path
+     * @return Full file path
      */
     public String getVideoFilePath(String relativePath) {
         if (relativePath == null || relativePath.trim().isEmpty()) {
             return null;
         }
         
-        // 移除开头的 /videos/
+        // Remove leading /videos/
         String filename = relativePath.replace("/videos/", "");
         return Paths.get(storagePath, filename).toString();
     }
 
     /**
-     * 检查视频文件是否存在
-     * @param relativePath 相对路径
-     * @return 是否存在
+     * Check if video file exists
+     * @param relativePath Relative path
+     * @return Whether exists
      */
     public boolean videoExists(String relativePath) {
         if (relativePath == null || relativePath.trim().isEmpty()) {
@@ -127,9 +127,9 @@ public class VideoStorageService {
     }
 
     /**
-     * 删除视频文件
-     * @param relativePath 相对路径
-     * @return 是否删除成功
+     * Delete video file
+     * @param relativePath Relative path
+     * @return Whether deletion successful
      */
     public boolean deleteVideo(String relativePath) {
         if (relativePath == null || relativePath.trim().isEmpty()) {
@@ -150,21 +150,21 @@ public class VideoStorageService {
     }
 
     /**
-     * 获取文件扩展名
+     * Get file extension
      */
     private String getFileExtension(String filename) {
         if (filename == null || filename.lastIndexOf(".") == -1) {
-            return ".mp4"; // 默认扩展名
+            return ".mp4"; // Default extension
         }
         return filename.substring(filename.lastIndexOf("."));
     }
 
     /**
-     * 解析文件大小字符串
+     * Parse file size string
      */
     private long parseSize(String sizeStr) {
         if (sizeStr == null || sizeStr.trim().isEmpty()) {
-            return 100 * 1024 * 1024; // 默认100MB
+            return 100 * 1024 * 1024; // Default 100MB
         }
         
         sizeStr = sizeStr.toUpperCase();

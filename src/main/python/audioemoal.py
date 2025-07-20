@@ -21,7 +21,7 @@ emotion_pipe = pipeline(
 
 def extract_audio_ffmpeg(mp4_path, output_wav_path="extracted.wav"):
     command = [
-        "ffmpeg",
+        "D:/anaconda3/envs/interview/Library/bin/ffmpeg.exe",
         "-i", mp4_path,
         "-ac", "1",             # 单声道
         "-ar", "16000",         # 采样率 16kHz

@@ -38,7 +38,7 @@ public class AvatarController {
     public Map<String, Object> startAvatar() {
         try {
             Map<String, Object> result = avatarService.startSession();
-            System.out.println("[AvatarController] startAvatar result: " + result);
+            // 虚拟人启动完成
             return result;
         } catch (Exception e) {
             e.printStackTrace();
@@ -46,7 +46,7 @@ public class AvatarController {
             err.put("status", "fail");
             err.put("msg", "avatar启动失败: " + e.getMessage());
             err.put("session", null);
-            System.out.println("[AvatarController] startAvatar error result: " + err);
+            // 虚拟人启动失败
             return err;
         }
     }

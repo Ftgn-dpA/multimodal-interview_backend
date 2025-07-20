@@ -34,7 +34,7 @@ public class VideoController {
     @GetMapping("/{filename:.+}")
     public ResponseEntity<Resource> getVideo(@PathVariable String filename) {
         try {
-            // 构建文件路径
+            // Build file path
             String relativePath = "/videos/" + filename;
             String fullPath = videoStorageService.getVideoFilePath(relativePath);
             
@@ -49,7 +49,7 @@ public class VideoController {
             
             Resource resource = new FileSystemResource(file);
             
-            // 设置响应头
+            // Set response headers
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.parseMediaType("video/mp4"));
             headers.setContentLength(file.length());
@@ -88,14 +88,14 @@ public class VideoController {
     @PostMapping("/upload-video/{recordId}")
     public ResponseEntity<?> uploadVideo(@PathVariable Long recordId, @RequestParam("video") MultipartFile videoFile) {
         try {
-            // 获取存储路径
+            // Get storage path
             String storagePath = videoStorageService.getStoragePath();
             String urlPrefix = videoStorageService.getAccessUrlPrefix();
-            // 生成唯一文件名
+            // Generate unique filename
             String filename = "record_" + recordId + "_" + System.currentTimeMillis() + ".mp4";
             File dest = new File(storagePath, filename);
             videoFile.transferTo(dest);
-            // 更新数据库
+            // Update database
             boolean updated = videoStorageService.updateInterviewRecordVideoFilePath(recordId, urlPrefix + filename);
             if (updated) {
                 return ResponseEntity.ok(Map.of("videoUrl", urlPrefix + filename));

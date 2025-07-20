@@ -15,7 +15,7 @@ public class BigModelController {
     public ResponseEntity<?> ask(@RequestParam String question) {
         try {
             String answer = bigModelService.askOnce(question);
-            System.out.println(answer);
+            // 大模型回答已生成
             return ResponseEntity.ok(answer);
         } catch (Exception e) {
             return ResponseEntity.status(500).body("大模型调用失败: " + e.getMessage());

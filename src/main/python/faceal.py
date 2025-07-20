@@ -48,27 +48,41 @@ def map_variance_score(val):
 
 # 检查GPU是否可用
 def analyze_facial_video(inputvideo_path):
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    print(f"Using {device} device")
-
-    # 初始化检测器并移动到GPU
-    detector = Detector(device=device)
-
-    review1 = '面部分析：'
-    video_prediction = detector.detect_video(
-        video_path=inputvideo_path, skip_frames=40, face_detection_threshold=0.95, batch_size=3
-    )
-    pose_rx = video_prediction.poses['Pitch'].mean()
-    au_means = video_prediction.aus.mean()
-    score_a = score_affinity(au_means)
-    score_t = score_tension(au_means)
-    score_e = score_emotional_stability(video_prediction.aus)
-    emotion = video_prediction.emotions.mean().idxmax()
-    print(pose_rx)
-    if pose_rx < 4:
-        review1 += '头部角度偏低;'
-    review1 += f'亲和度得分（满分5分）:{score_a};抗压得分（满分5分）:{score_t};情绪控制（满分5分）:{score_e};面部情绪为{emotion}'
-    return review1
+    import os
+    if not os.path.exists(inputvideo_path):
+        # 视频文件不存在，直接抛出异常
+        raise FileNotFoundError(f"视频文件不存在: {inputvideo_path}")
+    try:
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        print(f"Using {device} device")
+        detector = Detector(device=device)
+        review1 = '面部分析：'
+        video_prediction = detector.detect_video(
+            video_path=inputvideo_path, skip_frames=10, face_detection_threshold=0.5, batch_size=1
+        )
+        # 检查是否有检测到的人脸数据
+        if video_prediction.poses is None or video_prediction.poses.empty \
+           or video_prediction.aus is None or video_prediction.aus.empty \
+           or video_prediction.emotions is None or video_prediction.emotions.empty \
+           or len(video_prediction.poses) == 0 or len(video_prediction.aus) == 0 or len(video_prediction.emotions) == 0:
+            # 检测不到人脸，给低分
+            return "面部分析：未检测到人脸，亲和度得分（满分5分）:1; 抗压得分（满分5分）:1; 情绪控制（满分5分）:1; 面部情绪为未知"
+        # 正常分析
+        pose_rx = video_prediction.poses['Pitch'].mean()
+        au_means = video_prediction.aus.mean()
+        score_a = score_affinity(au_means)
+        score_t = score_tension(au_means)
+        score_e = score_emotional_stability(video_prediction.aus)
+        emotion = video_prediction.emotions.mean().idxmax()
+        print(pose_rx)
+        if pose_rx < 4:
+            review1 += '头部角度偏低;'
+        review1 += f'亲和度得分（满分5分）:{score_a};抗压得分（满分5分）:{score_t};情绪控制（满分5分）:{score_e};面部情绪为{emotion}'
+        return review1
+    except Exception as e:
+        print(f"面部分析过程中出现错误: {str(e)}")
+        # 其它异常也给低分
+        return "面部分析：分析过程中出现错误，亲和度得分（满分5分）:1; 抗压得分（满分5分）:1; 情绪控制（满分5分）:1; 面部情绪为未知"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyze facial expressions in a video.")
@@ -76,7 +90,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     import feat
     print(feat.__file__)
-    review=analyze_facial_video(args.video)
+    review = analyze_facial_video(args.video)
     print(review)
 
 
