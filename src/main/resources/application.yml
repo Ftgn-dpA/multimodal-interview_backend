@@ -57,9 +57,9 @@ logging:
 
 # 讯飞虚拟人avatar服务配置
 avatar:
-  app_id: 528394f2
-  api_key: 0dccac0467edaaeb86ca3f0fc0bead37
-  api_secret: NWU3MWE4YTM1YmRiYjQxMDgxN2E1MTQ3
+  app_id: 4478a044
+  api_key: 8a2bac2e4450c1eaf5f27c0835f2cf19
+  api_secret: OTg0ODEwMGMzZTI4NGQ2NjEwNWMxMDlk
   avatar_id: cnrfb86h2000000004 # 你的avatarId，需在讯飞平台获取
   vcn: x4_yezi # 你的vcn，需在讯飞平台获取
-  scene_id: 201309244992131072
+  scene_id: 205693782128201728
