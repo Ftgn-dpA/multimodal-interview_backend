@@ -4,24 +4,36 @@ import com.example.interview.util.AuthUtil;
 import com.google.gson.Gson;
 import okhttp3.*;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 
 @Service
 public class BigModelService {
+    
+    private static final Logger logger = LoggerFactory.getLogger(BigModelService.class);
 
     // 你的讯飞大模型参数
-    private static final String hostUrl = "https://spark-api.xf-yun.com/v1.1/chat";
-    private static final String domain = "lite";
+    private static final String hostUrl = "https://spark-api.xf-yun.com/v3.5/chat";
+    private static final String domain = "generalv3.5";
     private static final String appid = "c8a778c5";
     private static final String apiSecret = "Zjk0ZGY1NzlkZDBhZmY2YmEzOThkMDFj";
     private static final String apiKey = "fa559f68bf426ae0737377ad0472ad64";
     private static final Gson gson = new Gson();
 
     public String askOnce(String question) throws Exception {
+        logger.info("=== Starting large model call ===");
+        logger.info("Question length: {} characters", question != null ? question.length() : 0);
+        if (question != null && question.length() > 200) {
+            logger.info("Question preview: {}", question.substring(0, 200) + "...");
+        }
+        
         String authUrl = AuthUtil.assembleAuthUrl(hostUrl, "GET", apiKey, apiSecret);
         String wsUrl = authUrl.replace("http://", "ws://").replace("https://", "wss://");
+        logger.info("WebSocket URL: {}", wsUrl);
+        
         OkHttpClient client = new OkHttpClient.Builder().build();
         Request request = new Request.Builder().url(wsUrl).build();
         CountDownLatch finishLatch = new CountDownLatch(1);
@@ -30,6 +42,8 @@ public class BigModelService {
         WebSocketListener listener = new WebSocketListener() {
             @Override
             public void onOpen(WebSocket webSocket, Response response) {
+                logger.info("WebSocket connection established");
+                
                 // 构造请求参数
                 Map<String, Object> req = new HashMap<>();
                 Map<String, Object> header = new HashMap<>();
@@ -50,10 +64,11 @@ public class BigModelService {
                 List<Map<String, String>> text = new ArrayList<>();
 
                 // 先加 system 消息,需要
-                /*Map<String, String> systemMsg = new HashMap<>();
+                Map<String, String> systemMsg = new HashMap<>();
                 systemMsg.put("role", "system");
-                systemMsg.put("content", "");
-                text.add(systemMsg);*/
+                systemMsg.put("content", "请你根据以下信息给出面试者专业知识水平、技能匹配度、语言表达能力、逻辑思维能力、创新能力、应变抗压能力六方面评分（满分100）、关键问题定位、改进建议以及推荐学习资源" +
+                        "以json形式返回，包含以下字段，kg,sl,ep,lo,in,st对应评分，question对应问题，advice对应改进建议，path对应推荐路径");
+                text.add(systemMsg);
 
                 // 其他历史消息
                 // ...（如有历史消息，依次 add）...
@@ -68,15 +83,23 @@ public class BigModelService {
                 payload.put("message", message);
                 req.put("payload", payload);
 
-                webSocket.send(gson.toJson(req));
+                String requestJson = gson.toJson(req);
+                logger.info("Sending request to large model, request length: {} characters", requestJson.length());
+                webSocket.send(requestJson);
             }
 
             @Override
             public void onMessage(WebSocket webSocket, String text) {
                 try {
+                    logger.info("Received large model response, response length: {} characters", text.length());
+                    if (text.length() > 200) {
+                        logger.info("Response preview: {}", text.substring(0, 200) + "...");
+                    }
+                    
                     JsonParse resp = gson.fromJson(text, JsonParse.class);
                     if (resp.header.code != 0) {
-                        answer.append("[错误] code=").append(resp.header.code);
+                        logger.error("Large model returned error, code: {}", resp.header.code);
+                        answer.append("[Error] code=").append(resp.header.code);
                         finishLatch.countDown();
                         webSocket.close(1000, "");
                         return;
@@ -85,12 +108,15 @@ public class BigModelService {
                         for (Text t : resp.payload.choices.text) {
                             answer.append(t.content);
                         }
+                        logger.info("Accumulated answer length: {} characters", answer.length());
                     }
                     if (resp.header.status == 2) {
+                        logger.info("Large model answer completed, total length: {} characters", answer.length());
                         finishLatch.countDown();
                         webSocket.close(1000, "");
                     }
                 } catch (Exception e) {
+                    logger.error("Failed to process large model response: {}", e.getMessage(), e);
                     finishLatch.countDown();
                     webSocket.close(1000, "");
                 }
@@ -98,14 +124,17 @@ public class BigModelService {
 
             @Override
             public void onFailure(WebSocket webSocket, Throwable t, Response response) {
-                answer.append("[连接失败]");
+                logger.error("WebSocket connection failed: {}", t.getMessage(), t);
+                answer.append("[Connection failed]");
                 finishLatch.countDown();
             }
         };
 
         client.newWebSocket(request, listener);
         finishLatch.await();
-        return answer.toString();
+        String result = answer.toString();
+        logger.info("=== Large model call completed, final result length: {} characters ===", result.length());
+        return result;
     }
 
     // 内部类用于解析返回
