@@ -7,7 +7,6 @@ import com.example.interview.model.Resume;
 import com.example.interview.model.ProgressInfo;
 import com.example.interview.service.InterviewAnalysisMemoryService;
 import com.example.interview.service.ResumeParseService;
-import com.example.interview.service.Mp3SpeechRecognitionService;
 import com.example.interview.service.PythonScriptService;
 import com.example.interview.service.BigModelService;
 import com.example.interview.service.VideoStorageService;
@@ -30,6 +29,7 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import com.example.interview.service.AiResponseService;
 
 @RestController
 @RequestMapping("/api/interview")
@@ -44,8 +44,6 @@ public class InterviewAnalysisController {
     private InterviewAnalysisMemoryService interviewAnalysisMemoryService;
     @Autowired
     private ResumeParseService resumeParseService;
-    @Autowired
-    private Mp3SpeechRecognitionService mp3SpeechRecognitionService;
     @Autowired
     private PythonScriptService pythonScriptService;
     @Autowired
@@ -64,6 +62,8 @@ public class InterviewAnalysisController {
     private UserRepository userRepository;
     @Autowired
     private JwtUtil jwtUtil;
+    @Autowired
+    private AiResponseService aiResponseService;
 
     // 面试结束时的综合分析接口
     @PostMapping("/analyze/{recordId}")
@@ -130,10 +130,12 @@ public class InterviewAnalysisController {
         } catch (Exception e) {
             logger.error("Failed to retrieve AI response data: {}", e.getMessage(), e);
         }
-        
+        // 5.1 获取面试人原始回答文本
+        String userAnswersText = aiResponseService.aggregateUserAnswersByRecordId(recordId, "\n---\n");
+        logger.info("[分析流程] 聚合面试人原始回答文本: {}", userAnswersText);
         // 6. 执行多模态分析
         logger.info("Starting multimodal analysis...");
-        InterviewAnalysis analysis = performCompleteAnalysis(videoPath, resumeText, aiResponsesText, record);
+        InterviewAnalysis analysis = performCompleteAnalysis(videoPath, resumeText, aiResponsesText, userAnswersText, record);
         
         // 7. 保存分析结果到数据库
         logger.info("Starting to save analysis results to database...");
@@ -152,7 +154,7 @@ public class InterviewAnalysisController {
     }
 
     // 执行完整的多模态分析
-    private InterviewAnalysis performCompleteAnalysis(String videoPath, String resumeText, String aiResponsesText, InterviewRecord record) throws Exception {
+    private InterviewAnalysis performCompleteAnalysis(String videoPath, String resumeText, String aiResponsesText, String userAnswersText, InterviewRecord record) throws Exception {
         logger.info("=== Starting multimodal analysis execution ===");
         InterviewAnalysis analysis = new InterviewAnalysis();
         
@@ -160,19 +162,9 @@ public class InterviewAnalysisController {
         analysis.setResumetext(resumeText);
         logger.info("Resume information set, length: {} characters", resumeText != null ? resumeText.length() : 0);
         
-        // 语音识别
-        logger.info("Starting speech recognition...");
-        try {
-        String speechText = mp3SpeechRecognitionService.recognizeAudio(videoPath);
-        analysis.setSpeechText(speechText);
-            logger.info("Speech recognition successful, text length: {} characters", speechText != null ? speechText.length() : 0);
-            if (speechText != null && speechText.length() > 100) {
-                logger.info("Speech recognition text preview: {}", speechText.substring(0, 100) + "...");
-            }
-        } catch (Exception e) {
-            logger.error("Speech recognition failed: {}", e.getMessage(), e);
-            analysis.setSpeechText("Speech recognition failed");
-        }
+        // 只用聚合的面试人原始回答文本
+        analysis.setSpeechText(userAnswersText);
+        logger.info("[分析流程] 使用聚合面试人原始回答文本，长度: {}", userAnswersText != null ? userAnswersText.length() : 0);
         
         // 视觉分析（Python脚本）
         logger.info("Starting visual analysis...");

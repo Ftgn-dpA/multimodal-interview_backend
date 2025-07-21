@@ -230,20 +230,15 @@ public class InterviewController {
             // Note: Only normal interview endings will execute here, direct exits won't save AI responses
             try {
                 if (sessionId != null && !sessionId.isEmpty()) {
-                    int cachedCount = aiResponseService.getCachedResponseCount(sessionId);
-                    if (cachedCount > 0) {
-                        logger.info("Normal interview ending, starting batch save of AI responses, sessionId: {}, cached count: {}", sessionId, cachedCount);
-                        aiResponseService.batchSaveAiResponses(sessionId, recordId);
-                        logger.info("AI responses batch save completed, synchronized with history records");
-                    } else {
-                        logger.info("Normal interview ending, no cached AI responses to save, sessionId: {}", sessionId);
-                    }
+                    logger.info("Normal interview ending, starting batch save of all responses, sessionId: {}", sessionId);
+                    aiResponseService.batchSaveAllResponses(sessionId, recordId);
+                    logger.info("All responses batch save completed");
                 } else {
-                    logger.info("Normal interview ending, sessionId is empty, skipping AI response save");
+                    logger.info("Normal interview ending, sessionId is empty, skipping response save");
                 }
             } catch (Exception e) {
-                logger.error("Failed to batch save AI responses: {}", e.getMessage());
-                // AI response save failure doesn't affect history record generation, only log error
+                logger.error("Failed to batch save all responses: {}", e.getMessage());
+                // 保存失败只记录日志
             }
             
             // Save interview record (without analysis results, waiting for subsequent analysis)

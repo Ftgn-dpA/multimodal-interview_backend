@@ -19,6 +19,8 @@ import java.util.HashMap;
 import java.nio.charset.StandardCharsets;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.function.Consumer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class AvatarWebSocketClient extends WebSocketClient {
     // AI回复回调接口
@@ -39,6 +41,7 @@ public class AvatarWebSocketClient extends WebSocketClient {
     private Thread sendThread;
     private volatile String streamUrl = null;
     private String sessionId;
+    private static final Logger logger = LoggerFactory.getLogger(AvatarWebSocketClient.class);
 
     public AvatarWebSocketClient(URI serverUri, String appId, String avatarId, String vcn, String sceneId, CountDownLatch latch, String sessionId) {
         super(serverUri);
@@ -66,68 +69,81 @@ public class AvatarWebSocketClient extends WebSocketClient {
 
     @Override
     public void onMessage(String message) {
-        // AI原始响应已接收
         try {
+            logger.info("收到原始WebSocket消息: {}", message);
             Map<String, Object> data = parseJson(message);
-            Map<String, Object> header = (Map<String, Object>) data.get("header");
-            if (header != null) {
-                int code = ((Number)header.getOrDefault("code", 0)).intValue();
-                if (code != 0) {
-                    status.set(false);
-                    latch.countDown();
-                    return;
+            Map<String, Object> payload = (Map<String, Object>) data.get("payload");
+            if (payload != null && payload.containsKey("nlp")) {
+                Map<String, Object> nlp = (Map<String, Object>) payload.get("nlp");
+                String userText = (String) nlp.get("text");
+                String requestId = (String) nlp.get("request_id");
+                int status = ((Number) nlp.getOrDefault("status", 0)).intValue();
+                logger.info("[AvatarWS] 识别到面试人原始回答: {}，requestId: {}，status: {}", userText, requestId, status);
+                if (aiResponseCallback != null && userText != null && !userText.trim().isEmpty() && requestId != null) {
+                    try {
+                        if (aiResponseCallback instanceof com.example.interview.service.AiResponseService) {
+                            ((com.example.interview.service.AiResponseService) aiResponseCallback).cacheUserAnswerFragment(sessionId, requestId, userText, status);
+                        }
+                    } catch (Exception e) {
+                        System.err.println("[AvatarWebSocketClient] Callback cacheUserAnswerFragment failed: " + e.getMessage());
+                    }
+                }
+                // 新增：处理AI回复分轮次缓存
+                if (nlp.containsKey("ttsAnswer")) {
+                    Object ttsObj = nlp.get("ttsAnswer");
+                    String aiText = null;
+                    String aiRequestId = requestId;
+                    int aiStatus = status;
+                    if (ttsObj instanceof Map) {
+                        Map<String, Object> ttsAnswer = (Map<String, Object>) ttsObj;
+                        aiText = ttsAnswer.get("text") != null ? ttsAnswer.get("text").toString() : null;
+                        // 某些平台ttsAnswer里也可能有独立request_id/status
+                        if (ttsAnswer.get("request_id") != null) aiRequestId = ttsAnswer.get("request_id").toString();
+                        if (ttsAnswer.get("status") != null) aiStatus = ((Number) ttsAnswer.get("status")).intValue();
+                    }
+                    logger.info("[AvatarWS] 识别到AI回复: {}，requestId: {}，status: {}", aiText, aiRequestId, aiStatus);
+                    if (aiResponseCallback != null && aiText != null && !aiText.trim().isEmpty() && aiRequestId != null) {
+                        try {
+                            if (aiResponseCallback instanceof com.example.interview.service.AiResponseService) {
+                                ((com.example.interview.service.AiResponseService) aiResponseCallback).cacheAiResponseFragment(sessionId, aiRequestId, aiText, aiStatus);
+                            }
+                        } catch (Exception e) {
+                            System.err.println("[AvatarWebSocketClient] Callback cacheAiResponseFragment failed: " + e.getMessage());
+                        }
+                    }
                 }
             }
-            Map<String, Object> payload = (Map<String, Object>) data.get("payload");
-            if (payload != null) {
-                // ASR部分
-                if (payload.containsKey("asr")) {
-                    Map<String, Object> asr = (Map<String, Object>) payload.get("asr");
-                    if (asr.get("error_code") != null && ((Number)asr.get("error_code")).intValue() != 0) {
-                        System.out.println("[ASR错误] code=" + asr.get("error_code") + ", msg=" + asr.get("error_message"));
-                    }
-                }
-                // NLP部分
-                if (payload.containsKey("nlp")) {
-                    Map<String, Object> nlp = (Map<String, Object>) payload.get("nlp");
-                    if (nlp.get("ttsAnswer") != null) {
-                        Map<String, Object> tts = (Map<String, Object>) nlp.get("ttsAnswer");
-                        String aiResponseText = (String) tts.get("text");
-                        
-                        // Get streaming fragment information
-                        String requestId = (String) nlp.get("request_id");
-                        int status = ((Number) nlp.getOrDefault("status", 0)).intValue();
-                        
-                        // 调用回调函数，将AI回复片段传递给服务
-                        if (aiResponseCallback != null && aiResponseText != null && !aiResponseText.trim().isEmpty() && requestId != null) {
-                            try {
-                                // 使用新的流式分片缓存方法
-                                if (aiResponseCallback instanceof com.example.interview.service.AiResponseService) {
-                                    ((com.example.interview.service.AiResponseService) aiResponseCallback).cacheAiResponseFragment(sessionId, requestId, aiResponseText, status);
-                                }
-                            } catch (Exception e) {
-                                System.err.println("[AvatarWebSocketClient] Callback execution failed: " + e.getMessage());
+            // avatar部分
+            if (payload != null && payload.containsKey("avatar")) {
+                Map<String, Object> avatar = (Map<String, Object>) payload.get("avatar");
+                logger.info("avatar原始内容: {}", avatar);
+                // 新增：处理AI回复分轮次缓存
+                if (avatar.containsKey("ttsAnswer")) {
+                    logger.info("ttsAnswer内容: {}", avatar.get("ttsAnswer"));
+                    Map<String, Object> ttsAnswer = (Map<String, Object>) avatar.get("ttsAnswer");
+                    String aiText = ttsAnswer != null ? (String) ttsAnswer.get("text") : null;
+                    String aiRequestId = ttsAnswer != null ? (String) ttsAnswer.get("request_id") : null;
+                    int aiStatus = ttsAnswer != null && ttsAnswer.get("status") != null ? ((Number) ttsAnswer.get("status")).intValue() : 0;
+                    logger.info("[AvatarWS] 识别到AI回复: {}，requestId: {}，status: {}", aiText, aiRequestId, aiStatus);
+                    if (aiResponseCallback != null && aiText != null && !aiText.trim().isEmpty() && aiRequestId != null) {
+                        try {
+                            if (aiResponseCallback instanceof com.example.interview.service.AiResponseService) {
+                                ((com.example.interview.service.AiResponseService) aiResponseCallback).cacheAiResponseFragment(sessionId, aiRequestId, aiText, aiStatus);
                             }
+                        } catch (Exception e) {
+                            System.err.println("[AvatarWebSocketClient] Callback cacheAiResponseFragment failed: " + e.getMessage());
                         }
-                    }
-                    if (nlp.get("error_code") != null && ((Number)nlp.get("error_code")).intValue() != 0) {
-                        System.out.println("[NLP错误] code=" + nlp.get("error_code") + ", msg=" + nlp.get("error_message"));
                     }
                 }
-                
-                // avatar部分
-                if (payload.containsKey("avatar")) {
-                    Map<String, Object> avatar = (Map<String, Object>) payload.get("avatar");
-                    String eventType = (String) avatar.get("event_type");
-                    if ("stop".equals(eventType)) {
-                        status.set(false);
+                String eventType = (String) avatar.get("event_type");
+                if ("stop".equals(eventType)) {
+                    status.set(false);
+                    latch.countDown();
+                } else if ("stream_info".equals(eventType)) {
+                    avatarLinked = true;
+                    if (avatar.get("stream_url") != null) {
+                        streamUrl = avatar.get("stream_url").toString();
                         latch.countDown();
-                    } else if ("stream_info".equals(eventType)) {
-                        avatarLinked = true;
-                        if (avatar.get("stream_url") != null) {
-                            streamUrl = avatar.get("stream_url").toString();
-                            latch.countDown();
-                        }
                     }
                 }
             }

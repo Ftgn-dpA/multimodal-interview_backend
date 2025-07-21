@@ -17,6 +17,9 @@ public class AiResponse {
     @Column(name = "ai_response", columnDefinition = "JSON")
     private String aiResponse; // AI回复数组，每轮对话的完整回复作为一个JSON数组元素
 
+    @Column(name = "user_answers", columnDefinition = "JSON")
+    private String userAnswers; // 面试人原始回答JSON数组
+
     public AiResponse() {
     }
 
@@ -49,4 +52,7 @@ public class AiResponse {
     public void setAiResponse(String aiResponse) {
         this.aiResponse = aiResponse;
     }
+
+    public String getUserAnswers() { return userAnswers; }
+    public void setUserAnswers(String userAnswers) { this.userAnswers = userAnswers; }
 } 

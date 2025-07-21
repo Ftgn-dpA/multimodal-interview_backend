@@ -29,6 +29,10 @@ public class AiResponseService implements com.example.interview.ws.AvatarWebSock
     // 使用sessionId_requestId作为key，存储同一轮回复的所有片段
     private final java.util.Map<String, java.util.List<String>> fragmentCache = new java.util.concurrent.ConcurrentHashMap<>();
     
+    // 新增：面试人原始回答缓存
+    private final java.util.Map<String, java.util.List<String>> userAnswerCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<String, java.util.List<String>> userFragmentCache = new java.util.concurrent.ConcurrentHashMap<>();
+
     /**
      * 保存AI回复记录
      */
@@ -213,6 +217,79 @@ public class AiResponseService implements com.example.interview.ws.AvatarWebSock
     }
 
     /**
+     * 缓存面试人原始回答片段
+     */
+    public void cacheUserAnswerFragment(String sessionId, String requestId, String userAnswerFragment, int status) {
+        try {
+            if (status == 2) {
+                userAnswerCache.computeIfAbsent(sessionId, k -> new java.util.ArrayList<>()).add(userAnswerFragment);
+            }
+        } catch (Exception e) {
+            // 静默处理缓存错误
+        }
+    }
+
+    /**
+     * 批量保存所有面试人原始回答到数据库
+     */
+    public void batchSaveUserAnswers(String sessionId, Long interviewRecordId) {
+        try {
+            java.util.List<String> completeAnswers = userAnswerCache.get(sessionId);
+            if (completeAnswers == null || completeAnswers.isEmpty()) {
+                return;
+            }
+            java.util.Optional<com.example.interview.model.InterviewRecord> recordOpt = interviewRecordRepository.findById(interviewRecordId);
+            if (!recordOpt.isPresent()) {
+                throw new RuntimeException("面试记录不存在: " + interviewRecordId);
+            }
+            com.example.interview.model.InterviewRecord record = recordOpt.get();
+            // 保存为一条AiResponse，userAnswers字段存JSON数组
+            com.example.interview.model.AiResponse userAnswerEntity = new com.example.interview.model.AiResponse();
+            userAnswerEntity.setInterviewRecord(record);
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                String jsonArray = mapper.writeValueAsString(completeAnswers);
+                userAnswerEntity.setUserAnswers(jsonArray);
+            } catch (Exception e) {
+                userAnswerEntity.setUserAnswers(String.join("|", completeAnswers));
+            }
+            aiResponseRepository.save(userAnswerEntity);
+            userAnswerCache.remove(sessionId);
+        } catch (Exception e) {
+            throw e;
+        }
+    }
+
+    /**
+     * 聚合所有面试人原始回答文本，支持自定义分隔符
+     */
+    public String aggregateUserAnswersByRecordId(Long recordId, String delimiter) {
+        try {
+            java.util.List<com.example.interview.model.AiResponse> responses = aiResponseRepository.findByInterviewRecordId(recordId);
+            java.util.List<String> allAnswers = new java.util.ArrayList<>();
+            for (com.example.interview.model.AiResponse resp : responses) {
+                String json = resp.getUserAnswers();
+                if (json != null && !json.isEmpty()) {
+                    try {
+                        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                        java.util.List<String> arr = mapper.readValue(json, java.util.List.class);
+                        allAnswers.addAll(arr);
+                    } catch (Exception e) {
+                        allAnswers.add(json);
+                    }
+                }
+            }
+            return String.join(delimiter, allAnswers);
+        } catch (Exception e) {
+            return "";
+        }
+    }
+    // 兼容老接口，默认分隔符为\n
+    public String aggregateUserAnswersByRecordId(Long recordId) {
+        return aggregateUserAnswersByRecordId(recordId, "\n");
+    }
+
+    /**
      * 获取指定sessionId的缓存片段数量
      */
     public int getCachedResponseCount(String sessionId) {
@@ -246,5 +323,37 @@ public class AiResponseService implements com.example.interview.ws.AvatarWebSock
         // 这里可以添加过期时间逻辑，比如清理超过1小时的缓存
         // 目前简单清理所有缓存
         responseCache.clear();
+    }
+
+    // 新增：一次性批量保存AI回复和面试人原始回答，保证一场面试只插入一条记录，两个字段一一对应
+    public void batchSaveAllResponses(String sessionId, Long interviewRecordId) {
+        try {
+            java.util.List<String> aiResponses = responseCache.getOrDefault(sessionId, new java.util.ArrayList<>());
+            java.util.List<String> userAnswers = userAnswerCache.getOrDefault(sessionId, new java.util.ArrayList<>());
+            // 长度对齐，短的补空串
+            while (aiResponses.size() < userAnswers.size()) aiResponses.add("");
+            while (userAnswers.size() < aiResponses.size()) userAnswers.add("");
+            // 查找面试记录
+            Optional<InterviewRecord> recordOpt = interviewRecordRepository.findById(interviewRecordId);
+            if (!recordOpt.isPresent()) {
+                throw new RuntimeException("面试记录不存在: " + interviewRecordId);
+            }
+            InterviewRecord record = recordOpt.get();
+            AiResponse entity = new AiResponse();
+            entity.setInterviewRecord(record);
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                entity.setAiResponse(mapper.writeValueAsString(aiResponses));
+                entity.setUserAnswers(mapper.writeValueAsString(userAnswers));
+            } catch (Exception e) {
+                entity.setAiResponse(String.join("|", aiResponses));
+                entity.setUserAnswers(String.join("|", userAnswers));
+            }
+            aiResponseRepository.save(entity);
+            responseCache.remove(sessionId);
+            userAnswerCache.remove(sessionId);
+        } catch (Exception e) {
+            throw e;
+        }
     }
 } 

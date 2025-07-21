@@ -34,6 +34,7 @@ CREATE TABLE ai_responses (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     interview_record_id BIGINT NOT NULL,
     ai_response JSON NOT NULL COMMENT 'AI回复数组，每轮对话的完整回复作为一个JSON数组元素',
+    user_answers JSON NULL COMMENT '面试人原始回答JSON数组',
     FOREIGN KEY (interview_record_id) REFERENCES interview_records(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
