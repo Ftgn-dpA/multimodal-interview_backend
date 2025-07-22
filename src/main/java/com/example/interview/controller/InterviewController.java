@@ -13,6 +13,7 @@ import com.example.interview.repository.UserRepository;
 import com.example.interview.service.LargeModelService;
 import com.example.interview.service.VideoStorageService;
 import com.example.interview.service.AiResponseService;
+import com.example.interview.service.InterviewService;
 import com.example.interview.util.JwtUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +45,7 @@ public class InterviewController {
     private final JwtUtil jwtUtil;
     private final VideoStorageService videoStorageService;
     private final AiResponseService aiResponseService;
+    private final InterviewService interviewService;
 
     public InterviewController(LargeModelService largeModelService, 
                              InterviewRecordRepository interviewRecordRepository,
@@ -51,7 +53,8 @@ public class InterviewController {
                              UserRepository userRepository, 
                              JwtUtil jwtUtil,
                             VideoStorageService videoStorageService,
-                            AiResponseService aiResponseService) {
+                            AiResponseService aiResponseService,
+                            InterviewService interviewService) {
         this.largeModelService = largeModelService;
         this.interviewRecordRepository = interviewRecordRepository;
         this.interviewReportRepository = interviewReportRepository;
@@ -59,6 +62,7 @@ public class InterviewController {
         this.jwtUtil = jwtUtil;
         this.videoStorageService = videoStorageService;
         this.aiResponseService = aiResponseService;
+        this.interviewService = interviewService;
     }
 
     @GetMapping("/types")
@@ -356,6 +360,12 @@ public class InterviewController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", "Delete failed: " + e.getMessage()));
         }
+    }
+
+    @GetMapping("/prompt")
+    public ResponseEntity<String> getPrompt(@RequestParam String scene, @RequestParam String position) {
+        String prompt = interviewService.getPrompt(scene, position);
+        return ResponseEntity.ok(prompt);
     }
 
     // 辅助方法

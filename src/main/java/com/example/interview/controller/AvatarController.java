@@ -6,6 +6,7 @@ import com.example.interview.util.JwtUtil;
 import com.example.interview.model.User;
 import com.example.interview.repository.UserRepository;
 import com.example.interview.repository.InterviewRecordRepository;
+import com.example.interview.model.AvatarSendRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
@@ -51,16 +52,14 @@ public class AvatarController {
         }
     }
 
-    @PostMapping(value = "/send", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/send", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public Map<String, Object> sendInteractText(
-            @RequestParam String sessionId, 
-            @RequestParam String text,
-            @RequestParam(required = false) Long interviewRecordId,
+            @RequestBody AvatarSendRequest req,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
         Map<String, Object> result = new java.util.HashMap<>();
         try {
-            String msg = avatarService.sendInteractText(sessionId, text);
+            String msg = avatarService.sendInteractText(req.getSessionId(), req.getText());
             result.put("status", "ok");
             result.put("msg", msg);
         } catch (Exception e) {
