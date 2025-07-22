@@ -29,7 +29,7 @@ public class ResumeController {
     private JwtUtil jwtUtil;
 
     // 你可以改成 application.yml 配置
-    private static final String RESUME_ROOT_DIR = "F:/interview-resumes/";
+    private static final String RESUME_ROOT_DIR = "C:/Users/leisure/Desktop/softwarebei/interview-resumes";
 
     // 获取当前登录用户ID（JWT认证）
     private Long getCurrentUserId(String authHeader) {
@@ -50,14 +50,14 @@ public class ResumeController {
         String token = authHeader.replace("Bearer ", "");
         String username = jwtUtil.getUsernameFromToken(token);
         // 构建用户子目录
-        File userDir = new File(RESUME_ROOT_DIR + username + "/");
+        File userDir = new File(RESUME_ROOT_DIR + "/" + username + "/");
         if (!userDir.exists()) userDir.mkdirs();
 
         String filename = "resume_" + System.currentTimeMillis() + "_" + file.getOriginalFilename();
         File dest = new File(userDir, filename);
         file.transferTo(dest);
 
-        // 数据库存储相对路径（如 username/resume_xxx.pdf）
+        // 数据库存储相对路径（如 user123/resume_xxx.pdf）
         String dbPath = username + "/" + filename;
 
         Resume resume = new Resume();

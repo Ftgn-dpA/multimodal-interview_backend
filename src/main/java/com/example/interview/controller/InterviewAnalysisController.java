@@ -21,10 +21,14 @@ import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.support.StandardMultipartHttpServletRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.mock.web.MockMultipartFile;
+import java.io.File;
+import java.io.FileInputStream;
 
 import java.util.List;
 import java.util.Map;
@@ -72,6 +76,8 @@ public class InterviewAnalysisController {
             @RequestParam(required = false) Long resumeId,
             @RequestHeader("Authorization") String authHeader
     ) throws Exception {
+        System.out.println("[System.out] analyzeInterviewComplete called! recordId=" + recordId + ", resumeId=" + resumeId);
+        logger.info("分析接口收到参数：recordId={}, resumeId={}", recordId, resumeId);
         
         logger.info("=== Starting interview analysis, record ID: {}, resume ID: {} ===", recordId, resumeId);
         
@@ -93,15 +99,58 @@ public class InterviewAnalysisController {
         // 3. 获取简历信息
         String resumeText = "";
         if (resumeId != null) {
+            System.out.println("[System.out] analyze: 收到 resumeId=" + resumeId);
+            logger.info("分析接口收到 resumeId: {}", resumeId);
             Resume resume = resumeRepository.findById(resumeId).orElse(null);
-            if (resume != null && resume.getUserId().equals(user.getId())) {
-                // 这里可以调用简历解析服务，或者直接使用简历文件名
-                resumeText = "简历文件：" + resume.getOriginalName() + "\n上传时间：" + resume.getUploadTime();
-                logger.info("Resume information retrieved successfully: {}", resume.getOriginalName());
+            if (resume != null) {
+                System.out.println("[System.out] analyze: 找到简历 resume.userId=" + resume.getUserId() + ", 当前用户userId=" + user.getId());
+                logger.info("找到简历，resume.userId={}, 当前用户userId={}", resume.getUserId(), user.getId());
             } else {
-                logger.warn("Resume not found or insufficient permissions: resumeId={}", resumeId);
+                System.out.println("[System.out] analyze: 未找到简历 resumeId=" + resumeId);
+                logger.warn("未找到简历，resumeId={}", resumeId);
+            }
+            if (resume != null && resume.getUserId().equals(user.getId())) {
+                try {
+                    // 通过 userId 查 username
+                    User resumeUser = userRepository.findById(resume.getUserId()).orElse(null);
+                    String resumeUsername;
+                    if (resumeUser != null) {
+                        resumeUsername = resumeUser.getUsername();
+                    } else {
+                        resumeUsername = String.valueOf(resume.getUserId());
+                    }
+                    String resumeRoot = "F:/interview-resumes/";
+                    // 路径拼接为 interview-resumes/username/filename
+                    String filePath = resumeRoot + resumeUsername + "/" + resume.getFilename().substring(resume.getFilename().indexOf("/") + 1);
+                    System.out.println("[System.out] analyze: 解析简历文件 filePath=" + filePath);
+                    logger.info("准备解析简历文件，filePath={}", filePath);
+                    File file = new File(filePath);
+                    if (file.exists()) {
+                        System.out.println("[System.out] analyze: 简历文件存在，开始解析");
+                        logger.info("简历文件存在，开始解析");
+                        FileInputStream fis = new FileInputStream(file);
+                        MultipartFile multipartFile = new org.springframework.mock.web.MockMultipartFile(file.getName(), file.getName(), "application/pdf", fis);
+                        resumeText = resumeParseService.parseResume(multipartFile);
+                        fis.close();
+                        System.out.println("[System.out] analyze: 【简历解析内容】\n" + resumeText);
+                        logger.info("【简历解析内容】\n{}", resumeText);
+                    } else {
+                        System.out.println("[System.out] analyze: 简历文件未找到 filePath=" + filePath);
+                        logger.warn("简历文件未找到，filePath={}", filePath);
+                        resumeText = "简历文件：" + resume.getOriginalName() + "\n上传时间：" + resume.getUploadTime() + "\n（文件未找到，无法解析内容）";
+                    }
+                } catch (Exception e) {
+                    System.out.println("[System.out] analyze: 简历解析失败 " + e.getMessage());
+                    logger.error("简历解析失败: {}", e.getMessage(), e);
+                    resumeText = "简历文件：" + resume.getOriginalName() + "\n上传时间：" + resume.getUploadTime() + "\n（解析失败）";
+                }
+                logger.info("Resume information retrieved successfully: {}", resume.getOriginalName());
+            } else if (resume != null) {
+                System.out.println("[System.out] analyze: 简历归属校验失败 resume.userId=" + resume.getUserId() + ", 当前用户userId=" + user.getId());
+                logger.warn("简历归属校验失败，resume.userId={}, 当前用户userId={}", resume.getUserId(), user.getId());
             }
         } else {
+            System.out.println("[System.out] analyze: No resume ID provided, skipping resume analysis");
             logger.info("No resume ID provided, skipping resume analysis");
         }
         
@@ -403,7 +452,7 @@ public class InterviewAnalysisController {
             report.setImprovementSuggestions("{\"建议\":[\"" + (analysis.getModelAdvice() != null ? analysis.getModelAdvice().replace("\n", "\",\"") : "待评测") + "\"]}");
             // 只保存JSON
             try {
-                String analysisJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(analysis);
+                String analysisJson = new ObjectMapper().writeValueAsString(analysis);
                 report.setPerformanceAnalysis(analysisJson);
             } catch (Exception e) {
                 logger.error("Failed to serialize analysis to JSON: {}", e.getMessage(), e);
@@ -466,7 +515,7 @@ public class InterviewAnalysisController {
             InterviewAnalysis analysis = null;
             try {
                 if (report != null && report.getPerformanceAnalysis() != null) {
-                    analysis = new com.fasterxml.jackson.databind.ObjectMapper().readValue(report.getPerformanceAnalysis(), InterviewAnalysis.class);
+                    analysis = new ObjectMapper().readValue(report.getPerformanceAnalysis(), InterviewAnalysis.class);
                 }
             } catch (Exception e) {
                 logger.error("Failed to deserialize analysis from JSON: {}", e.getMessage(), e);
@@ -503,7 +552,7 @@ public class InterviewAnalysisController {
             String jsonStr = extractPureJson(modelOutput);
             logger.info("大模型提取后JSON：{}", jsonStr);
             // 字段名兼容：全部转小写
-            org.json.JSONObject obj = new org.json.JSONObject(jsonStr.toLowerCase());
+            JSONObject obj = new JSONObject(jsonStr.toLowerCase());
             analysis.setKg(obj.optInt("kg"));
             analysis.setSl(obj.optInt("sl"));
             analysis.setEp(obj.optInt("ep"));
